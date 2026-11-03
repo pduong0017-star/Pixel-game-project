@@ -4,38 +4,15 @@ Tựa game hầm ngục **Pixel Action-Roguelike** phong cách *Soul Knight* k�
 
 ---
 
-## 📱 Cách Tải & Cài Đặt Game Về Điện Thoại
+## 🚀 Cách Đẩy Lên GitHub & Chơi Trên Điện Thoại (Không Lỗi)
 
-Dự án đã được tích hợp sẵn **Progressive Web App (PWA)** và **GitHub Actions (`.github/workflows/deploy.yml`)** để tự động xuất bản lên **GitHub Pages**.
+Dự án đã được đóng gói sẵn bản Production vào thư mục **`/docs`** (không dùng `.github/workflows` để tránh lỗi chặn quyền OAuth khi xuất từ AI Studio).
 
-### Cách 1: Đẩy lên GitHub & Chơi qua GitHub Pages (Khuyên dùng)
-1. Trên thanh công cụ góc trên bên phải của **Google AI Studio**, bấm vào biểu tượng **GitHub (Export to GitHub)** để tạo kho lưu trữ (repository) trên tài khoản GitHub của bạn.
-2. Vào repository vừa tạo trên GitHub -> chọn mục **Settings** -> **Pages**.
-3. Tại phần **Build and deployment (Source)**, chọn **GitHub Actions**.
-4. Workflow `.github/workflows/deploy.yml` sẽ tự động chạy và xuất bản game tại địa chỉ:
-   `https://<tên-github-của-bạn>.github.io/<tên-repo>/`
-5. Mở đường link đó trên điện thoại:
-   - **Android (Chrome)**: Bấm nút **"📲 TẢI VỀ ĐIỆN THOẠI"** ngay ở góc trên màn hình chính của game (hoặc chọn *Thêm vào màn hình chính / Cài đặt ứng dụng*).
-   - **iPhone / iPad (Safari)**: Bấm nút **Chia sẻ (Share)** ở thanh dưới cùng Safari -> chọn **Thêm vào MH chính (Add to Home Screen)**.
+### Bước 1: Xuất sang GitHub
+- Bấm biểu tượng **GitHub** ở góc trên bên phải của **Google AI Studio** để đẩy repository lên tài khoản GitHub của bạn.
 
----
-
-### Cách 2: Đóng gói thành file `.APK` cài trực tiếp cho Android (Qua Capacitor)
-Nếu bạn muốn xuất ra file `.apk` độc lập:
-```bash
-npm install
-npm run build
-npm install @capacitor/core @capacitor/cli @capacitor/android
-npx cap init "Obsidian Soul Knights" "com.obsidian.soulknights" --web-dir dist
-npx cap add android
-npx cap sync
-npx cap open android
-```
-Sau đó trong Android Studio chọn **Build -> Build Bundle(s) / APK(s) -> Build APK(s)**.
-
----
-
-## 🎮 Tính Năng Nổi Bật
-- **Sảnh Chờ Tương Tác (Interactive Lobby)**: Bục đá cổ ngữ hiển thị Hiệp Sĩ thở & vung vũ khí kèm Thú Cưng chạy quanh chân.
-- **6 Class Nhân Vật & 18 Trang Phục (3 Bậc Skin)**: *Aegis Knight, Pyromancer, Shadowblade, Cyber Alchemist, Soul Necromancer, Blood Berserker*.
-- **Meta-Game**: Mở Rương Bí Ẩn (Gacha Chest), Thợ Rèn Kho Vũ Khí Khởi Điểm, Cuộn Nhiệm Vụ Hằng Ngày, Thánh Điện Nâng Cấp Vĩnh Viễn.
+### Bước 2: Bật GitHub Pages từ thư mục `/docs`
+1. Mở Repository vừa tạo trên GitHub -> chọn **Settings** -> **Pages**.
+2. Tại mục **Build and deployment (Source)**, giữ nguyên **Deploy from a branch**.
+3. Tại mục **Branch**, chọn nhánh **`main`**, chọn thư mục **`/docs`** (thay vì `/ (root)`) và bấm **Save**.
+4. Sau 15–30 giây, mở đường link `https://<tên-github-của-bạn>.github.io/<tên-repo>/` trên điện thoại và chọn **Thêm vào màn hình chính (Add to Home Screen)**!

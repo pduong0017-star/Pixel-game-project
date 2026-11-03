@@ -2143,7 +2143,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <PhoneDownloadIcon className="w-6 h-6" />
                 <h2 className="font-pixel text-xs sm:text-sm text-emerald-400">
-                  CÀI GAME VỀ ĐIỆN THOẠI & TRIỂN KHAI GITHUB
+                  TẢI GAME VỀ ĐIỆN THOẠI & TRIỂN KHAI GITHUB (ĐÃ FIX LỖI)
                 </h2>
               </div>
               <button
@@ -2158,89 +2158,94 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs font-mono-tabular">
-              {/* 1. Direct Mobile PWA Install */}
-              <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-emerald-500/50">
+              {/* CÁCH 1: TẢI TRỰC TIẾP FILE GAME OFFLINE (.HTML) HOẶC CÀI PWA */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-emerald-500/60">
                 <div className="font-pixel text-[11px] text-emerald-300 mb-1.5">
-                  1. CÀI ĐẶT TRỰC TIẾP LÊN MÀN HÌNH CHÍNH (PWA OFFLINE)
+                  CÁCH 1: TẢI FILE GAME TRỰC TIẾP VỀ MÁY (KHÔNG CẦN QUA GITHUB)
                 </div>
                 <p className="text-slate-300 leading-relaxed mb-3">
-                  Game đã tích hợp chuẩn <strong>Progressive Web App (PWA)</strong>. Khi mở trên điện thoại, bạn có thể cài đặt thành ứng dụng full-screen (chơi không cần mạng):
+                  Mình đã đóng gói toàn bộ game thành <strong>1 file độc lập duy nhất</strong> và cấu hình sẵn <strong>Link Web App (PWA)</strong>. Bạn có thể tải thẳng file về máy hoặc mở link trên điện thoại:
                 </p>
 
-                {isInstallable ? (
-                  <button
-                    onClick={async () => {
-                      sound.playChing();
-                      await install();
-                    }}
-                    className="btn-3d btn-3d-emerald w-full py-3 px-4 rounded-xl font-pixel text-xs flex items-center justify-center gap-2 cursor-pointer"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+                  <a
+                    href="./Obsidian-Soul-Knights-Mobile.html"
+                    download="Obsidian-Soul-Knights-Mobile.html"
+                    onClick={() => sound.playChing()}
+                    className="btn-3d btn-3d-emerald py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 text-center no-underline cursor-pointer"
                   >
-                    <PhoneDownloadIcon className="w-5 h-5" />
-                    <span>BẤM ĐỂ CÀI ĐẶT GAME VỀ MÁY NGAY</span>
-                  </button>
-                ) : isIOS ? (
-                  <div className="p-3 rounded-lg bg-slate-950 border border-sky-500/40 text-sky-200">
-                    <strong>Hướng dẫn cho iPhone / iPad (Safari):</strong>
-                    <br />
-                    1. Bấm nút <strong>Chia sẻ (Share)</strong> ở thanh dưới cùng trình duyệt Safari.
-                    <br />
-                    2. Cuộn xuống chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={window.location.origin}
-                      className="flex-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sky-300 text-xs"
-                    />
+                    <PhoneDownloadIcon className="w-4 h-4 shrink-0" />
+                    <span>TẢI FILE GAME OFFLINE (.HTML)</span>
+                  </a>
+
+                  {isInstallable ? (
+                    <button
+                      onClick={async () => {
+                        sound.playChing();
+                        await install();
+                      }}
+                      className="btn-3d btn-3d-amber py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <PhoneDownloadIcon className="w-4 h-4 shrink-0" />
+                      <span>CÀI APP LÊN MÀN HÌNH CHÍNH</span>
+                    </button>
+                  ) : (
                     <button
                       onClick={() => {
-                        navigator.clipboard?.writeText(window.location.origin);
+                        const shareUrl =
+                          'https://ais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app';
+                        navigator.clipboard?.writeText(shareUrl);
                         sound.playChing();
                         setCopiedUrl(true);
-                        setTimeout(() => setCopiedUrl(false), 2000);
+                        setTimeout(() => setCopiedUrl(false), 2500);
                       }}
-                      className="btn-3d btn-3d-cyan px-4 py-2 rounded-lg font-pixel text-[10px] shrink-0 cursor-pointer"
+                      className="btn-3d btn-3d-cyan py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      {copiedUrl ? 'ĐÃ COPY LINK!' : 'COPY LINK MỞ TRÊN ĐT'}
+                      <span>
+                        {copiedUrl
+                          ? '✓ ĐÃ COPY LINK ĐIỆN THOẠI!'
+                          : 'COPY LINK CHƠI TRÊN ĐT'}
+                      </span>
                     </button>
+                  )}
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
+                  <div>
+                    🔗 <strong>Link mở trực tiếp trên điện thoại:</strong>{' '}
+                    <span className="text-sky-300 select-all break-all">
+                      https://ais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app
+                    </span>
                   </div>
-                )}
+                  <div className="text-slate-400 mt-1">
+                    • <strong>Android (Chrome)</strong>: Mở link trên → bấm menu ⋮ → chọn <strong>Cài đặt ứng dụng (Install App)</strong>.
+                    <br />• <strong>iPhone (Safari)</strong>: Mở link trên → bấm <strong>Chia sẻ (Share)</strong> → chọn <strong>Thêm vào MH chính</strong>.
+                  </div>
+                </div>
               </div>
 
-              {/* 2. GitHub Export & Automatic GitHub Pages Workflow */}
-              <div className="p-3.5 rounded-xl bg-[#111726] border border-amber-500/40">
+              {/* CÁCH 2: ĐẨY LÊN GITHUB KHÔNG BỊ LỖI WORKFLOW SCOPE */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-amber-500/50">
                 <div className="font-pixel text-[11px] text-amber-300 mb-1.5">
-                  2. ĐẨY LÊN GITHUB & TỰ ĐỘNG CHẠY GITHUB PAGES
+                  CÁCH 2: ĐẨY LÊN GITHUB PAGES (ĐÃ SỬA LỖI TỪ CHỐI QUYỀN)
                 </div>
                 <p className="text-slate-300 leading-relaxed">
-                  Mình đã tạo sẵn file cấu hình <code>.github/workflows/deploy.yml</code> và cấu hình đường dẫn tương đối <code>base: './'</code> trong dự án. Bạn chỉ cần làm 3 bước:
+                  <strong>Nguyên nhân lỗi vừa rồi:</strong> GitHub chặn ứng dụng bên thứ 3 đẩy thư mục <code>.github/workflows</code>. Mình đã <strong>xóa bỏ <code>.github/workflows</code></strong> và <strong>đóng gói sẵn bản Build hoàn chỉnh vào thư mục <code>/docs</code></strong> để bạn đẩy lên GitHub thành công 100%!
                 </p>
                 <ol className="list-decimal list-inside space-y-1.5 text-slate-200 mt-2">
                   <li>
-                    Nhìn lên <strong>thanh công cụ góc trên bên phải của AI Studio</strong>, bấm biểu tượng <strong>GitHub (Export to GitHub)</strong> để đẩy code lên tài khoản GitHub của bạn.
+                    Bấm lại nút <strong>GitHub (Save / Export to GitHub)</strong> ở góc trên bên phải AI Studio (bây giờ sẽ đẩy lên mượt mà, không còn báo lỗi).
                   </li>
                   <li>
-                    Mở kho lưu trữ (Repository) vừa tạo trên GitHub, vào mục <strong>Settings → Pages</strong>.
+                    Trên GitHub, vào <strong>Settings → Pages</strong> của repository.
                   </li>
                   <li>
-                    Tại mục <strong>Build and deployment (Source)</strong>, chọn <strong>GitHub Actions</strong>. GitHub sẽ tự động đóng gói và cấp cho bạn link game vĩnh viễn để tải về điện thoại!
+                    Ở mục <strong>Build and deployment (Source)</strong>, giữ nguyên <strong>Deploy from a branch</strong>.
+                  </li>
+                  <li>
+                    Ở mục <strong>Branch</strong>, chọn nhánh <strong><code>main</code></strong>, đổi thư mục từ <code>/ (root)</code> sang <strong><code>/docs</code></strong> rồi bấm <strong>Save</strong>. Game sẽ chạy ngay lập tức mà không cần đợi build!
                   </li>
                 </ol>
-              </div>
-
-              {/* 3. Optional APK Packaging via Capacitor */}
-              <div className="p-3.5 rounded-xl bg-[#111726] border border-slate-800">
-                <div className="font-pixel text-[11px] text-sky-300 mb-1">
-                  3. XUẤT FILE .APK CHO ANDROID (TÙY CHỌN)
-                </div>
-                <p className="text-slate-400 mb-1.5">
-                  Sau khi tải repo từ GitHub về máy tính, bạn có thể đóng gói thành file <code>.apk</code> bằng lệnh:
-                </p>
-                <pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-emerald-300 overflow-x-auto">
-                  {`npm install && npm run build\nnpx @capacitor/cli init "SoulKnights" "com.obsidian.soulknights" --web-dir dist\nnpx cap add android && npx cap open android`}
-                </pre>
               </div>
             </div>
           </div>
