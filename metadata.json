@@ -1,0 +1,6 @@
+{
+  "name": "Obsidian Descent",
+  "description": "An isometric pixel-art roguelike dungeon crawler crafted for mobile touch and desktop play.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
