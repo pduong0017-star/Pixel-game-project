@@ -1,4 +1,4 @@
-import { EnemyType, HeroClassId, PetId, WeaponId } from './types';
+import { EnemyType, HeroClassId, PetId, SkinTier, WeaponId } from './types';
 
 function createPixelSprite(
   grid: string[],
@@ -21,7 +21,7 @@ function createPixelSprite(
       if (ch !== '.' && palette[ch]) {
         ctx.fillStyle = overrideFill
           ? ch === 'o'
-            ? '#7f1d1d'
+            ? '#1e293b'
             : overrideFill
           : palette[ch];
         ctx.fillRect(x * scale, y * scale, scale, scale);
@@ -33,6 +33,11 @@ function createPixelSprite(
 
 export interface SpriteBank {
   heroes: Record<HeroClassId, [HTMLCanvasElement, HTMLCanvasElement]>;
+  heroesSkins: Record<
+    HeroClassId,
+    Record<SkinTier, [HTMLCanvasElement, HTMLCanvasElement]>
+  >;
+  heroesSilhouette: Record<HeroClassId, [HTMLCanvasElement, HTMLCanvasElement]>;
   heroesGhost: Record<HeroClassId, [HTMLCanvasElement, HTMLCanvasElement]>;
   pets: Record<PetId, [HTMLCanvasElement, HTMLCanvasElement]>;
   enemies: Record<EnemyType, [HTMLCanvasElement, HTMLCanvasElement]>;
@@ -56,16 +61,40 @@ let cachedBank: SpriteBank | null = null;
 export function getSpriteBank(): SpriteBank {
   if (cachedBank) return cachedBank;
 
-  // 1. VANGUARD KNIGHT
-  const knightPalette: Record<string, string> = {
-    o: '#090b10',
-    r: '#e11d48',
-    R: '#fb7185',
-    s: '#cbd5e1',
-    m: '#64748b',
-    d: '#334155',
-    g: '#f59e0b',
-    G: '#fde047',
+  // ==========================================================================
+  // 1. VANGUARD KNIGHT (3 Skin Palettes: Default, Rare Cobalt, Legendary Seraph)
+  // ==========================================================================
+  const knightPalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      r: '#e11d48',
+      R: '#fb7185',
+      s: '#cbd5e1',
+      m: '#64748b',
+      d: '#334155',
+      g: '#f59e0b',
+      G: '#fde047',
+    },
+    rare: {
+      o: '#090b10',
+      r: '#0284c7',
+      R: '#38bdf8',
+      s: '#e0f2fe',
+      m: '#0369a1',
+      d: '#1e3a8a',
+      g: '#38bdf8',
+      G: '#bae6fd',
+    },
+    legendary: {
+      o: '#090b10',
+      r: '#9333ea',
+      R: '#e879f9',
+      s: '#fef08a',
+      m: '#f59e0b',
+      d: '#b45309',
+      g: '#ffffff',
+      G: '#fef08a',
+    },
   };
 
   const knightFrame0 = [
@@ -106,15 +135,37 @@ export function getSpriteBank(): SpriteBank {
     '................',
   ];
 
-  // 2. PYROMANCER
-  const pyroPalette: Record<string, string> = {
-    o: '#090b10',
-    p: '#7c2d12',
-    P: '#c2410c',
-    g: '#f59e0b',
-    y: '#fde047',
-    f: '#f97316',
-    w: '#fef08a',
+  // ==========================================================================
+  // 2. ASH PYROMANCER (3 Skin Palettes: Default, Rare Frostfire, Legendary Astral)
+  // ==========================================================================
+  const pyroPalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      p: '#7c2d12',
+      P: '#c2410c',
+      g: '#f59e0b',
+      y: '#fde047',
+      f: '#f97316',
+      w: '#fef08a',
+    },
+    rare: {
+      o: '#090b10',
+      p: '#1e1b4b',
+      P: '#312e81',
+      g: '#38bdf8',
+      y: '#7dd3fc',
+      f: '#0284c7',
+      w: '#e0f2fe',
+    },
+    legendary: {
+      o: '#090b10',
+      p: '#4c1d95',
+      P: '#7e22ce',
+      g: '#fde047',
+      y: '#ffffff',
+      f: '#f43f5e',
+      w: '#fef08a',
+    },
   };
 
   const pyroFrame0 = [
@@ -155,13 +206,31 @@ export function getSpriteBank(): SpriteBank {
     '................',
   ];
 
-  // 3. SHADOW ROGUE
-  const roguePalette: Record<string, string> = {
-    o: '#090b10',
-    c: '#1e293b',
-    C: '#334155',
-    e: '#10b981',
-    E: '#34d399',
+  // ==========================================================================
+  // 3. SHADOW ROGUE (3 Skin Palettes: Default, Rare Bloodmoon, Legendary Cyber)
+  // ==========================================================================
+  const roguePalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      c: '#1e293b',
+      C: '#334155',
+      e: '#10b981',
+      E: '#34d399',
+    },
+    rare: {
+      o: '#090b10',
+      c: '#31102f',
+      C: '#4a154b',
+      e: '#f43f5e',
+      E: '#fb7185',
+    },
+    legendary: {
+      o: '#090b10',
+      c: '#0f172a',
+      C: '#f59e0b',
+      e: '#22d3ee',
+      E: '#fef08a',
+    },
   };
 
   const rogueFrame0 = [
@@ -202,15 +271,31 @@ export function getSpriteBank(): SpriteBank {
     '................',
   ];
 
-  // 4. CYBER ALCHEMIST (New 4th Class!)
-  const alchemistPalette: Record<string, string> = {
-    o: '#090b10',
-    a: '#0f766e',
-    A: '#14b8a6',
-    g: '#84cc16',
-    G: '#bef264',
-    b: '#38bdf8',
-    w: '#f8fafc',
+  // ==========================================================================
+  // 4. CYBER ALCHEMIST (3 Skin Palettes)
+  // ==========================================================================
+  const alchemistPalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      a: '#0f766e',
+      A: '#14b8a6',
+      g: '#84cc16',
+      G: '#bef264',
+    },
+    rare: {
+      o: '#090b10',
+      a: '#581c87',
+      A: '#9333ea',
+      g: '#38bdf8',
+      G: '#e0f2fe',
+    },
+    legendary: {
+      o: '#090b10',
+      a: '#b45309',
+      A: '#f59e0b',
+      g: '#f43f5e',
+      G: '#fef08a',
+    },
   };
 
   const alchemistFrame0 = [
@@ -248,6 +333,138 @@ export function getSpriteBank(): SpriteBank {
     '...oaa....aao...',
     '..oggo....oggo..',
     '..ooo......ooo..',
+    '................',
+  ];
+
+  // ==========================================================================
+  // 5. VOID NECROMANCER (5th Class - Unlockable! 3 Skin Palettes)
+  // ==========================================================================
+  const necroHeroPalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      v: '#3b0764',
+      V: '#7e22ce',
+      s: '#e2e8f0',
+      c: '#c084fc',
+      g: '#38bdf8',
+    },
+    rare: {
+      o: '#090b10',
+      v: '#064e3b',
+      V: '#059669',
+      s: '#ecfdf5',
+      c: '#34d399',
+      g: '#fde047',
+    },
+    legendary: {
+      o: '#090b10',
+      v: '#4c0519',
+      V: '#be123c',
+      s: '#fef08a',
+      c: '#f59e0b',
+      g: '#ffffff',
+    },
+  };
+
+  const necroHeroFrame0 = [
+    '...oo......oo...',
+    '..occo....occo..',
+    '...oVVVVVVVVo...',
+    '...oVssssssVo...',
+    '...oVsgoogsVo...',
+    '....oVssssVo....',
+    '...oVVcccccVVo..',
+    '..oVVVcVVVcVVVo.',
+    '..oVVVVVVVVVVVo.',
+    '...ovvvvvvvvvo..',
+    '...ovvccccvvvo..',
+    '....ovv..vvo....',
+    '....occ..cco....',
+    '....ooo..ooo....',
+    '................',
+  ];
+
+  const necroHeroFrame1 = [
+    '..oo........oo..',
+    '.occo......occo.',
+    '...oVVVVVVVVo...',
+    '...oVssssssVo...',
+    '...oVsgoogsVo...',
+    '....oVssssVo....',
+    '...oVVcccccVVo..',
+    '..oVVVcVVVcVVVo.',
+    '..oVVVVVVVVVVVo.',
+    '...ovvvvvvvvvo..',
+    '...ovvccccvvvo..',
+    '...ovv....vvo...',
+    '..occo....occo..',
+    '..ooo......ooo..',
+    '................',
+  ];
+
+  // ==========================================================================
+  // 6. BERSERKER TITAN (6th Class - Unlockable! 3 Skin Palettes)
+  // ==========================================================================
+  const berserkerPalettes: Record<SkinTier, Record<string, string>> = {
+    default: {
+      o: '#090b10',
+      b: '#991b1b',
+      B: '#ef4444',
+      s: '#fde047',
+      m: '#475569',
+      w: '#f8fafc',
+    },
+    rare: {
+      o: '#090b10',
+      b: '#1e3a8a',
+      B: '#3b82f6',
+      s: '#38bdf8',
+      m: '#94a3b8',
+      w: '#e0f2fe',
+    },
+    legendary: {
+      o: '#090b10',
+      b: '#78350f',
+      B: '#f59e0b',
+      s: '#ffffff',
+      m: '#fde047',
+      w: '#fef08a',
+    },
+  };
+
+  const berserkerFrame0 = [
+    '..oo........oo..',
+    '.osso......osso.',
+    '..ooBBBBBBBBoo..',
+    '..oBBwBBBBwBBo..',
+    '..oBBBBssBBBBo..',
+    '...oooooooooo...',
+    '.oosssBBBBsssoo.',
+    'oBBsBBBBBBBBsBBo',
+    'oBBBBbssssbBBBBo',
+    '.oo.ommmmmmo.oo.',
+    '....ommmmmmo....',
+    '....obb..bbo....',
+    '....osso.osso...',
+    '....oooo.oooo...',
+    '................',
+  ];
+
+  const berserkerFrame1 = [
+    '.oo..........oo.',
+    'osso........osso',
+    '..ooBBBBBBBBoo..',
+    '..oBBwBBBBwBBo..',
+    '..oBBBBssBBBBo..',
+    '...oooooooooo...',
+    '.oosssBBBBsssoo.',
+    'oBBsBBBBBBBBsBBo',
+    'oBBBBbssssbBBBBo',
+    '.oo.ommmmmmo.oo.',
+    '....ommmmmmo....',
+    '...obb....bbo...',
+    '..osso....osso..',
+    '..oooo....oooo..',
     '................',
   ];
 
@@ -332,7 +549,7 @@ export function getSpriteBank(): SpriteBank {
     '..oo....oo..',
   ];
 
-  // ENEMIES: SLIME, GOBLIN, GOLEM, NECRO_MAGE, WARDEN BOSS, TRAINING DUMMY
+  // ENEMIES
   const slimePalette: Record<string, string> = {
     o: '#090b10',
     s: '#10b981',
@@ -459,7 +676,6 @@ export function getSpriteBank(): SpriteBank {
     '..oooo....oooo..',
   ];
 
-  // NEW ENEMY: SKELETON NECRO MAGE (Bắn 3 tia cầu ma thuật tím)
   const necroPalette: Record<string, string> = {
     o: '#090b10',
     p: '#581c87',
@@ -707,7 +923,6 @@ export function getSpriteBank(): SpriteBank {
     '............',
   ];
 
-  // Wooden Crate & Ancient Ceramic Vase (Destructible Props!)
   const cratePalette: Record<string, string> = {
     o: '#090b10',
     w: '#78350f',
@@ -867,41 +1082,97 @@ export function getSpriteBank(): SpriteBank {
     y: '#fde047',
   };
 
+  const buildSkinSet = (
+    f0: string[],
+    f1: string[],
+    palettes: Record<SkinTier, Record<string, string>>
+  ): Record<SkinTier, [HTMLCanvasElement, HTMLCanvasElement]> => ({
+    default: [
+      createPixelSprite(f0, palettes.default, 3),
+      createPixelSprite(f1, palettes.default, 3),
+    ],
+    rare: [
+      createPixelSprite(f0, palettes.rare, 3),
+      createPixelSprite(f1, palettes.rare, 3),
+    ],
+    legendary: [
+      createPixelSprite(f0, palettes.legendary, 3),
+      createPixelSprite(f1, palettes.legendary, 3),
+    ],
+  });
+
+  const heroesSkins: Record<
+    HeroClassId,
+    Record<SkinTier, [HTMLCanvasElement, HTMLCanvasElement]>
+  > = {
+    knight: buildSkinSet(knightFrame0, knightFrame1, knightPalettes),
+    pyromancer: buildSkinSet(pyroFrame0, pyroFrame1, pyroPalettes),
+    rogue: buildSkinSet(rogueFrame0, rogueFrame1, roguePalettes),
+    alchemist: buildSkinSet(alchemistFrame0, alchemistFrame1, alchemistPalettes),
+    necromancer: buildSkinSet(necroHeroFrame0, necroHeroFrame1, necroHeroPalettes),
+    berserker: buildSkinSet(berserkerFrame0, berserkerFrame1, berserkerPalettes),
+  };
+
   cachedBank = {
     heroes: {
+      knight: heroesSkins.knight.default,
+      pyromancer: heroesSkins.pyromancer.default,
+      rogue: heroesSkins.rogue.default,
+      alchemist: heroesSkins.alchemist.default,
+      necromancer: heroesSkins.necromancer.default,
+      berserker: heroesSkins.berserker.default,
+    },
+    heroesSkins,
+    heroesSilhouette: {
       knight: [
-        createPixelSprite(knightFrame0, knightPalette, 3),
-        createPixelSprite(knightFrame1, knightPalette, 3),
+        createPixelSprite(knightFrame0, knightPalettes.default, 3, '#05070b'),
+        createPixelSprite(knightFrame1, knightPalettes.default, 3, '#05070b'),
       ],
       pyromancer: [
-        createPixelSprite(pyroFrame0, pyroPalette, 3),
-        createPixelSprite(pyroFrame1, pyroPalette, 3),
+        createPixelSprite(pyroFrame0, pyroPalettes.default, 3, '#05070b'),
+        createPixelSprite(pyroFrame1, pyroPalettes.default, 3, '#05070b'),
       ],
       rogue: [
-        createPixelSprite(rogueFrame0, roguePalette, 3),
-        createPixelSprite(rogueFrame1, roguePalette, 3),
+        createPixelSprite(rogueFrame0, roguePalettes.default, 3, '#05070b'),
+        createPixelSprite(rogueFrame1, roguePalettes.default, 3, '#05070b'),
       ],
       alchemist: [
-        createPixelSprite(alchemistFrame0, alchemistPalette, 3),
-        createPixelSprite(alchemistFrame1, alchemistPalette, 3),
+        createPixelSprite(alchemistFrame0, alchemistPalettes.default, 3, '#05070b'),
+        createPixelSprite(alchemistFrame1, alchemistPalettes.default, 3, '#05070b'),
+      ],
+      necromancer: [
+        createPixelSprite(necroHeroFrame0, necroHeroPalettes.default, 3, '#05070b'),
+        createPixelSprite(necroHeroFrame1, necroHeroPalettes.default, 3, '#05070b'),
+      ],
+      berserker: [
+        createPixelSprite(berserkerFrame0, berserkerPalettes.default, 3, '#05070b'),
+        createPixelSprite(berserkerFrame1, berserkerPalettes.default, 3, '#05070b'),
       ],
     },
     heroesGhost: {
       knight: [
-        createPixelSprite(knightFrame0, knightPalette, 3, '#38bdf8'),
-        createPixelSprite(knightFrame1, knightPalette, 3, '#38bdf8'),
+        createPixelSprite(knightFrame0, knightPalettes.default, 3, '#38bdf8'),
+        createPixelSprite(knightFrame1, knightPalettes.default, 3, '#38bdf8'),
       ],
       pyromancer: [
-        createPixelSprite(pyroFrame0, pyroPalette, 3, '#fb923c'),
-        createPixelSprite(pyroFrame1, pyroPalette, 3, '#fb923c'),
+        createPixelSprite(pyroFrame0, pyroPalettes.default, 3, '#fb923c'),
+        createPixelSprite(pyroFrame1, pyroPalettes.default, 3, '#fb923c'),
       ],
       rogue: [
-        createPixelSprite(rogueFrame0, roguePalette, 3, '#34d399'),
-        createPixelSprite(rogueFrame1, roguePalette, 3, '#34d399'),
+        createPixelSprite(rogueFrame0, roguePalettes.default, 3, '#34d399'),
+        createPixelSprite(rogueFrame1, roguePalettes.default, 3, '#34d399'),
       ],
       alchemist: [
-        createPixelSprite(alchemistFrame0, alchemistPalette, 3, '#a3e635'),
-        createPixelSprite(alchemistFrame1, alchemistPalette, 3, '#a3e635'),
+        createPixelSprite(alchemistFrame0, alchemistPalettes.default, 3, '#a3e635'),
+        createPixelSprite(alchemistFrame1, alchemistPalettes.default, 3, '#a3e635'),
+      ],
+      necromancer: [
+        createPixelSprite(necroHeroFrame0, necroHeroPalettes.default, 3, '#c084fc'),
+        createPixelSprite(necroHeroFrame1, necroHeroPalettes.default, 3, '#c084fc'),
+      ],
+      berserker: [
+        createPixelSprite(berserkerFrame0, berserkerPalettes.default, 3, '#ef4444'),
+        createPixelSprite(berserkerFrame1, berserkerPalettes.default, 3, '#ef4444'),
       ],
     },
     pets: {

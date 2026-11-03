@@ -69,7 +69,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Common',
     rarityColor: '#cbd5e1',
     shopGemsCost: 80,
-    description: 'Wide fan cleave (0 Mana). Destroys enemy bullets & restores +2 Mana.',
+    description: 'Chém quạt rộng (0 Mana). Phá hủy đạn địch & hồi +2 Mana.',
   },
   twin_daggers: {
     id: 'twin_daggers',
@@ -87,7 +87,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Rare',
     rarityColor: '#38bdf8',
     shopGemsCost: 140,
-    description: 'Ultra-fast dual slashes (0 Mana). Cuts through enemy bullets.',
+    description: 'Song đao tốc độ cực nhanh (0 Mana). Chém tan đạn địch.',
   },
   pioneer_pistol: {
     id: 'pioneer_pistol',
@@ -105,7 +105,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Common',
     rarityColor: '#cbd5e1',
     shopGemsCost: 70,
-    description: 'Reliable sidearm with infinite energy (0 Mana).',
+    description: 'Súng lục cơ bản không tốn năng lượng (0 Mana).',
   },
   splitter_shotgun: {
     id: 'splitter_shotgun',
@@ -123,7 +123,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Rare',
     rarityColor: '#38bdf8',
     shopGemsCost: 160,
-    description: 'Blasts a 5-pellet spread cone with heavy knockback (2 Mana).',
+    description: 'Bắn chùm 5 viên đạn ghém đẩy lùi mạnh (2 Mana).',
   },
   plasma_rifle: {
     id: 'plasma_rifle',
@@ -141,7 +141,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Epic',
     rarityColor: '#a855f7',
     shopGemsCost: 220,
-    description: 'High-velocity plasma stream (1 Mana). Melts bosses rapidly.',
+    description: 'Súng tiểu liên plasma tốc độ xả đạn cực đại (1 Mana).',
   },
   thunder_staff: {
     id: 'thunder_staff',
@@ -160,7 +160,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#a855f7',
     chainLightning: true,
     shopGemsCost: 240,
-    description: 'Fires lightning orbs that arc between nearby foes (3 Mana).',
+    description: 'Bắn cầu sét giật dây chuyền qua nhiều mục tiêu (3 Mana).',
   },
   frost_laser: {
     id: 'frost_laser',
@@ -179,7 +179,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#a855f7',
     piercing: true,
     shopGemsCost: 260,
-    description: 'Twin piercing cryo beams that slice through entire lines of foes (2 Mana).',
+    description: 'Pháo băng giá bắn 2 tia laser xuyên thấu hàng quái (2 Mana).',
   },
   inferno_bow: {
     id: 'inferno_bow',
@@ -199,7 +199,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     piercing: true,
     explosive: true,
     shopGemsCost: 320,
-    description: 'Piercing dragon arrows that detonate in a fiery blast on impact (3 Mana).',
+    description: 'Cung rồng lửa bắn tên xuyên thấu phát nổ rực lửa (3 Mana).',
   },
   excalibur: {
     id: 'excalibur',
@@ -218,7 +218,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#f59e0b',
     piercing: true,
     shopGemsCost: 360,
-    description: 'Colossal golden cleave that also launches a piercing holy sword wave (2 Mana).',
+    description: 'Thánh kiếm hoàng kim chém quạt lớn kèm kiếm khí xuyên thấu (2 Mana).',
   },
 };
 
@@ -237,7 +237,7 @@ export const PETS: Record<PetId, PetConfig> = {
   cat: {
     id: 'cat',
     name: 'Chilly the Cat',
-    role: 'Agile Melee Companion',
+    role: 'Mèo Chiến Binh Cận Chiến',
     damage: 15,
     attackCooldown: 0.85,
     isRanged: false,
@@ -247,7 +247,7 @@ export const PETS: Record<PetId, PetConfig> = {
   mini_slime: {
     id: 'mini_slime',
     name: 'Bloop the Slime',
-    role: 'Bouncing Gel Guard',
+    role: 'Slime Băng Hộ Vệ',
     damage: 17,
     attackCooldown: 0.95,
     isRanged: false,
@@ -257,7 +257,7 @@ export const PETS: Record<PetId, PetConfig> = {
   baby_dragon: {
     id: 'baby_dragon',
     name: 'Ignis Dragonling',
-    role: 'Ranged Fireball Pet',
+    role: 'Rồng Con Phun Cầu Lửa',
     damage: 20,
     attackCooldown: 1.0,
     isRanged: true,
@@ -270,8 +270,9 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
   knight: {
     id: 'knight',
     name: 'Vanguard Knight',
-    title: 'Dual-Wield Paladin',
-    description: 'High Armor & HP. Starts with Broadsword + Pioneer Pistol.',
+    title: 'Hiệp Sĩ Tiên Phong',
+    description: 'Máu và Giáp dày. Khởi đầu với Kiếm Bản Rộng + Súng Lục.',
+    unlockCost: 0,
     maxHp: 145,
     maxArmor: 65,
     maxMana: 200,
@@ -279,16 +280,44 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     moveSpeed: 5.5,
     starterWeaponId: 'broadsword',
     secondaryWeaponId: 'pioneer_pistol',
-    skillName: 'Superior Fire & Shockwave',
-    skillDesc: 'Unleash a golden shockwave, restore +35 Mana, and fire a double volley.',
+    skillName: 'Superior Shockwave',
+    skillDesc: 'Phóng sóng chấn động hoàng kim, hồi +35 Mana và làm choáng quái.',
     skillCooldown: 5.2,
     accentColor: '#f59e0b',
+    skins: {
+      default: {
+        id: 'knight_default',
+        tier: 'default',
+        name: 'Iron Vanguard',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#f59e0b',
+      },
+      rare: {
+        id: 'knight_rare',
+        tier: 'rare',
+        name: 'Cobalt Templar',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 150,
+        accentColor: '#38bdf8',
+      },
+      legendary: {
+        id: 'knight_legendary',
+        tier: 'legendary',
+        name: 'Solar Seraphim',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 300,
+        accentColor: '#fde047',
+        auraColor: '#fde047',
+      },
+    },
   },
   pyromancer: {
     id: 'pyromancer',
     name: 'Ash Pyromancer',
-    title: 'Arcane Elementalist',
-    description: 'High Mana pool. Starts with Staff of Thunder + Pioneer Pistol.',
+    title: 'Pháp Sư Hỏa Diệm',
+    description: 'Bể Mana cực lớn. Khởi đầu với Trượng Sấm Sét + Súng Lục.',
+    unlockCost: 0,
     maxHp: 105,
     maxArmor: 45,
     maxMana: 260,
@@ -297,15 +326,43 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     starterWeaponId: 'thunder_staff',
     secondaryWeaponId: 'pioneer_pistol',
     skillName: 'Solar Cataclysm',
-    skillDesc: 'Erupt 8 piercing magma bolts in all directions and restore +45 Mana.',
+    skillDesc: 'Phóng 8 cầu dung nham xuyên thấu ra mọi hướng và hồi +45 Mana.',
     skillCooldown: 4.8,
     accentColor: '#f97316',
+    skins: {
+      default: {
+        id: 'pyromancer_default',
+        tier: 'default',
+        name: 'Cinder Robe',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#f97316',
+      },
+      rare: {
+        id: 'pyromancer_rare',
+        tier: 'rare',
+        name: 'Frostfire Arcanist',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 150,
+        accentColor: '#38bdf8',
+      },
+      legendary: {
+        id: 'pyromancer_legendary',
+        tier: 'legendary',
+        name: 'Astral Archon',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 300,
+        accentColor: '#e879f9',
+        auraColor: '#e879f9',
+      },
+    },
   },
   rogue: {
     id: 'rogue',
     name: 'Shadow Rogue',
-    title: 'Assassin Marksman',
-    description: 'High Crit & Speed. Starts with Shadow Twin Blades + Splitter Shotgun.',
+    title: 'Sát Thủ Bóng Đêm',
+    description: 'Tốc chạy & Chí mạng cao. Khởi đầu với Song Đao + Súng Shotgun.',
+    unlockCost: 0,
     maxHp: 115,
     maxArmor: 45,
     maxMana: 200,
@@ -314,15 +371,43 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     starterWeaponId: 'twin_daggers',
     secondaryWeaponId: 'splitter_shotgun',
     skillName: 'Phantom Blade Fan',
-    skillDesc: 'Throw 6 piercing emerald kunai that crit and reset Dash cooldown.',
+    skillDesc: 'Phi 6 phi tiêu lục bảo xuyên thấu chí mạng và hồi ngay lượt Dash.',
     skillCooldown: 4.0,
     accentColor: '#10b981',
+    skins: {
+      default: {
+        id: 'rogue_default',
+        tier: 'default',
+        name: 'Night Stalker',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#10b981',
+      },
+      rare: {
+        id: 'rogue_rare',
+        tier: 'rare',
+        name: 'Crimson Shinobi',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 150,
+        accentColor: '#f43f5e',
+      },
+      legendary: {
+        id: 'rogue_legendary',
+        tier: 'legendary',
+        name: 'Cyber Ronin X',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 300,
+        accentColor: '#22d3ee',
+        auraColor: '#22d3ee',
+      },
+    },
   },
   alchemist: {
     id: 'alchemist',
     name: 'Cyber Alchemist',
-    title: 'Venom & Cryo Specialist',
-    description: 'Balanced Armor & Tech. Starts with Aurora Cryo Cannon + Broadsword.',
+    title: 'Giả Kim Thuật Sư',
+    description: 'Công nghệ sinh học & băng giá. Khởi đầu với Pháo Laser Băng.',
+    unlockCost: 220,
     maxHp: 125,
     maxArmor: 55,
     maxMana: 230,
@@ -331,9 +416,126 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     starterWeaponId: 'frost_laser',
     secondaryWeaponId: 'broadsword',
     skillName: 'Alchemical Venom Nova',
-    skillDesc: 'Hurl 6 explosive bio-concoctions that detonate & restore +15 Shield +35 Mana.',
+    skillDesc: 'Ném 6 bình độc sinh học nổ lan, hồi +15 Giáp & +35 Mana.',
     skillCooldown: 4.6,
     accentColor: '#14b8a6',
+    skins: {
+      default: {
+        id: 'alchemist_default',
+        tier: 'default',
+        name: 'Bio-Hazmat Suit',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#14b8a6',
+      },
+      rare: {
+        id: 'alchemist_rare',
+        tier: 'rare',
+        name: 'Nebula Chemist',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 160,
+        accentColor: '#c084fc',
+      },
+      legendary: {
+        id: 'alchemist_legendary',
+        tier: 'legendary',
+        name: 'Auric Plague Lord',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 320,
+        accentColor: '#fde047',
+        auraColor: '#a3e635',
+      },
+    },
+  },
+  necromancer: {
+    id: 'necromancer',
+    name: 'Void Necromancer',
+    title: 'Chúa Tể Hư Không',
+    description: 'Chiêu hồn bóng tối & hút sinh lực. Khởi đầu với Súng Plasma SMG.',
+    unlockCost: 350,
+    maxHp: 118,
+    maxArmor: 60,
+    maxMana: 270,
+    critChance: 0.28,
+    moveSpeed: 5.7,
+    starterWeaponId: 'plasma_rifle',
+    secondaryWeaponId: 'thunder_staff',
+    skillName: 'Abyssal Soul Harvest',
+    skillDesc: 'Phóng 10 hồn ma hư không tự săn mục tiêu, hút +15 HP & +40 Mana.',
+    skillCooldown: 4.5,
+    accentColor: '#c084fc',
+    skins: {
+      default: {
+        id: 'necromancer_default',
+        tier: 'default',
+        name: 'Lich Sovereign',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#c084fc',
+      },
+      rare: {
+        id: 'necromancer_rare',
+        tier: 'rare',
+        name: 'Emerald Wraith',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 180,
+        accentColor: '#34d399',
+      },
+      legendary: {
+        id: 'necromancer_legendary',
+        tier: 'legendary',
+        name: 'Blood Emperor',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 350,
+        accentColor: '#f43f5e',
+        auraColor: '#f43f5e',
+      },
+    },
+  },
+  berserker: {
+    id: 'berserker',
+    name: 'Berserker Titan',
+    title: 'Chiến Thần Cuồng Nộ',
+    description: 'Sức mạnh hủy diệt cận chiến. Khởi đầu với Đại Kiếm Excalibur.',
+    unlockCost: 450,
+    maxHp: 170,
+    maxArmor: 70,
+    maxMana: 190,
+    critChance: 0.32,
+    moveSpeed: 6.0,
+    starterWeaponId: 'excalibur',
+    secondaryWeaponId: 'splitter_shotgun',
+    skillName: 'Ragnarok Blood Rage',
+    skillDesc: 'Giậm vỡ mặt đất tạo 3 vòng chém + phóng 6 kiếm khí lửa hủy diệt.',
+    skillCooldown: 4.4,
+    accentColor: '#ef4444',
+    skins: {
+      default: {
+        id: 'berserker_default',
+        tier: 'default',
+        name: 'Warborn Gladiator',
+        rarityLabel: 'MẶC ĐỊNH',
+        cost: 0,
+        accentColor: '#ef4444',
+      },
+      rare: {
+        id: 'berserker_rare',
+        tier: 'rare',
+        name: 'Glacial Viking',
+        rarityLabel: 'HIẾM (RARE)',
+        cost: 180,
+        accentColor: '#38bdf8',
+      },
+      legendary: {
+        id: 'berserker_legendary',
+        tier: 'legendary',
+        name: 'God-King Ares',
+        rarityLabel: 'HUYỀN THOẠI (LEGENDARY)',
+        cost: 380,
+        accentColor: '#fde047',
+        auraColor: '#fde047',
+      },
+    },
   },
 };
 
@@ -342,42 +544,42 @@ export const BOON_POOL: BoonOption[] = [
     id: 'vitality_surge',
     name: 'Titan Wine (+25% Max HP)',
     category: 'Survival Buff',
-    description: 'Increase Max HP by +25% and immediately restore 45% HP.',
+    description: 'Tăng +25% Máu tối đa và hồi ngay lập tức 45% HP.',
     accent: '#4ade80',
   },
   {
     id: 'blitz_reflex',
     name: 'Firing Rate & Speed +30%',
     category: 'Offense Buff',
-    description: 'Increase Attack/Fire Rate by +30% and reduce Skill Cooldown by 20%.',
+    description: 'Tăng +30% Tốc độ bắn/chém và giảm 20% Hồi chiêu Kỹ năng.',
     accent: '#fde047',
   },
   {
     id: 'chain_arc',
     name: 'Laser & Lightning Bounce',
     category: 'Elemental Buff',
-    description: 'All attacks arc Chain Lightning to nearby enemies for 65% damage.',
+    description: 'Mọi đòn đánh phóng tia sét dây chuyền sang quái lân cận (65% DMG).',
     accent: '#38bdf8',
   },
   {
     id: 'vampiric_edge',
     name: 'Vampirism (Heal on Kill)',
     category: 'Sustenance Buff',
-    description: 'Restore +10 HP and +18 Mana every time you defeat an enemy.',
+    description: 'Hồi +10 HP và +18 Mana mỗi khi tiêu diệt kẻ địch.',
     accent: '#f43f5e',
   },
   {
     id: 'executioner',
     name: 'Critical Pierce (+Damage)',
     category: 'Offense Buff',
-    description: '+30% Weapon Damage and +15% Critical Strike chance.',
+    description: 'Tăng +30% Sát thương vũ khí và +15% Tỷ lệ Chí mạng.',
     accent: '#f59e0b',
   },
   {
     id: 'ember_nova',
     name: 'Flame Dash Nova',
     category: 'Tactical Buff',
-    description: 'Dashing triggers a fiery ring dealing 50 damage to surrounding foes.',
+    description: 'Khi Lướt (Dash) tạo vòng lửa gây 50 sát thương lên quái xung quanh.',
     accent: '#f97316',
   },
 ];
@@ -443,7 +645,6 @@ export function generateLivingRoom(): GeneratedFloor {
     }
   }
 
-  // North Dungeon Entrance Gate corridor
   tiles[ry - 1][11].type = 'door_open';
   tiles[ry - 1][12].type = 'door_open';
   tiles[ry][11].type = 'portal_pedestal';
@@ -467,12 +668,11 @@ export function generateLivingRoom(): GeneratedFloor {
   };
 
   const interactables: Interactable[] = [
-    // 4 Selectable Heroes in the Living Room
     {
       id: 101,
       type: 'lobby_hero',
-      gx: 5.8,
-      gy: 5.5,
+      gx: 5.5,
+      gy: 5.2,
       opened: false,
       value: 0,
       bobPhase: 0,
@@ -482,8 +682,8 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 102,
       type: 'lobby_hero',
-      gx: 5.8,
-      gy: 8.0,
+      gx: 5.5,
+      gy: 7.4,
       opened: false,
       value: 0,
       bobPhase: 1,
@@ -493,8 +693,8 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 103,
       type: 'lobby_hero',
-      gx: 5.8,
-      gy: 10.5,
+      gx: 5.5,
+      gy: 9.6,
       opened: false,
       value: 0,
       bobPhase: 2,
@@ -504,15 +704,36 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 107,
       type: 'lobby_hero',
-      gx: 5.8,
-      gy: 13.0,
+      gx: 5.5,
+      gy: 11.8,
       opened: false,
       value: 0,
       bobPhase: 3,
       heroId: 'alchemist',
       label: 'Cyber Alchemist',
     },
-    // Pet House / Companion Selector
+    {
+      id: 108,
+      type: 'lobby_hero',
+      gx: 8.2,
+      gy: 5.2,
+      opened: false,
+      value: 0,
+      bobPhase: 4,
+      heroId: 'necromancer',
+      label: 'Void Necromancer',
+    },
+    {
+      id: 109,
+      type: 'lobby_hero',
+      gx: 8.2,
+      gy: 11.8,
+      opened: false,
+      value: 0,
+      bobPhase: 5,
+      heroId: 'berserker',
+      label: 'Berserker Titan',
+    },
     {
       id: 104,
       type: 'lobby_pet',
@@ -523,7 +744,6 @@ export function generateLivingRoom(): GeneratedFloor {
       bobPhase: 0,
       label: 'Switch Companion Pet',
     },
-    // Free Starter Weapon Chest in Living Room
     {
       id: 105,
       type: 'chest',
@@ -534,7 +754,6 @@ export function generateLivingRoom(): GeneratedFloor {
       bobPhase: 0,
       label: 'Starter Supply Chest',
     },
-    // North Dungeon Entrance Gate
     {
       id: 106,
       type: 'dungeon_gate',
@@ -547,13 +766,11 @@ export function generateLivingRoom(): GeneratedFloor {
     },
   ];
 
-  // Practice props in Living Room
   const props: DestructibleProp[] = [
     { id: 1, roomId: 1, kind: 'crate', gx: 14.5, gy: 5.2, hp: 20, hitFlash: 0 },
     { id: 2, roomId: 1, kind: 'vase', gx: 14.5, gy: 12.8, hp: 15, hitFlash: 0 },
   ];
 
-  // Training Dummy in the Living Room
   const enemies: Enemy[] = [
     {
       id: 901,
@@ -603,7 +820,7 @@ export function generateLivingRoom(): GeneratedFloor {
 }
 
 // ============================================================================
-// 2. SOUL KNIGHT MULTI-ROOM GRID DUNGEON GENERATOR (Enhanced Graphics & Props)
+// 2. SOUL KNIGHT MULTI-ROOM GRID DUNGEON GENERATOR
 // ============================================================================
 export function generateDungeonFloor(
   floorNum: number,
@@ -686,7 +903,12 @@ export function generateDungeonFloor(
     });
   }
 
-  const carveFloor = (x: number, y: number, roomKind?: DungeonRoom['kind'], rm?: DungeonRoom) => {
+  const carveFloor = (
+    x: number,
+    y: number,
+    roomKind?: DungeonRoom['kind'],
+    rm?: DungeonRoom
+  ) => {
     if (x <= 1 || y <= 1 || x >= width - 2 || y >= height - 2) return;
     if (rm && roomKind) {
       const distCenter = Math.max(Math.abs(x - rm.cx), Math.abs(y - rm.cy));
@@ -694,7 +916,12 @@ export function generateDungeonFloor(
         tiles[y][x].type = 'floor_carpet';
         return;
       }
-      if ((roomKind === 'SHOP_ROOM' || roomKind === 'CHEST_ROOM' || roomKind === 'STATUE_ROOM') && distCenter <= 2.5) {
+      if (
+        (roomKind === 'SHOP_ROOM' ||
+          roomKind === 'CHEST_ROOM' ||
+          roomKind === 'STATUE_ROOM') &&
+        distCenter <= 2.5
+      ) {
         tiles[y][x].type = 'floor_carpet';
         return;
       }
@@ -709,7 +936,6 @@ export function generateDungeonFloor(
   const props: DestructibleProp[] = [];
   let nextPropId = 10;
 
-  // Carve rooms & add rich environmental details (pillars, spike traps, crates & vases)
   for (const rm of rooms) {
     for (let y = rm.y; y < rm.y + rm.h; y++) {
       for (let x = rm.x; x < rm.x + rm.w; x++) {
@@ -723,11 +949,9 @@ export function generateDungeonFloor(
       tiles[rm.y + rm.h - 3][rm.x + 3].type = 'pillar';
       tiles[rm.y + rm.h - 3][rm.x + rm.w - 4].type = 'pillar';
 
-      // Add periodic Spike Traps near center of combat room
       tiles[Math.floor(rm.cy)][Math.floor(rm.cx) - 2].type = 'spike_trap';
       tiles[Math.floor(rm.cy)][Math.floor(rm.cx) + 2].type = 'spike_trap';
 
-      // Add destructible Wooden Crates & Ancient Vases along room corners/edges
       const propCoords: [number, number, 'crate' | 'vase'][] = [
         [rm.x + 1.5, rm.y + 1.5, 'crate'],
         [rm.x + rm.w - 1.5, rm.y + 1.5, 'vase'],
@@ -747,27 +971,73 @@ export function generateDungeonFloor(
         });
       }
     } else if (rm.kind === 'BOSS_ROOM') {
-      // Corner obsidian pillars & destructible supply vases in Boss Arena
       tiles[rm.y + 2][rm.x + 2].type = 'pillar';
       tiles[rm.y + 2][rm.x + rm.w - 3].type = 'pillar';
       tiles[rm.y + rm.h - 3][rm.x + 2].type = 'pillar';
       tiles[rm.y + rm.h - 3][rm.x + rm.w - 3].type = 'pillar';
 
       props.push(
-        { id: nextPropId++, roomId: rm.id, kind: 'vase', gx: rm.x + 1.5, gy: rm.cy - 3, hp: 18, hitFlash: 0 },
-        { id: nextPropId++, roomId: rm.id, kind: 'vase', gx: rm.x + 1.5, gy: rm.cy + 3, hp: 18, hitFlash: 0 },
-        { id: nextPropId++, roomId: rm.id, kind: 'crate', gx: rm.x + rm.w - 1.5, gy: rm.cy - 3, hp: 24, hitFlash: 0 },
-        { id: nextPropId++, roomId: rm.id, kind: 'crate', gx: rm.x + rm.w - 1.5, gy: rm.cy + 3, hp: 24, hitFlash: 0 }
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'vase',
+          gx: rm.x + 1.5,
+          gy: rm.cy - 3,
+          hp: 18,
+          hitFlash: 0,
+        },
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'vase',
+          gx: rm.x + 1.5,
+          gy: rm.cy + 3,
+          hp: 18,
+          hitFlash: 0,
+        },
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'crate',
+          gx: rm.x + rm.w - 1.5,
+          gy: rm.cy - 3,
+          hp: 24,
+          hitFlash: 0,
+        },
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'crate',
+          gx: rm.x + rm.w - 1.5,
+          gy: rm.cy + 3,
+          hp: 24,
+          hitFlash: 0,
+        }
       );
     } else if (rm.kind === 'START_ROOM') {
       props.push(
-        { id: nextPropId++, roomId: rm.id, kind: 'vase', gx: rm.x + 1.6, gy: rm.y + 1.6, hp: 15, hitFlash: 0 },
-        { id: nextPropId++, roomId: rm.id, kind: 'crate', gx: rm.x + rm.w - 1.6, gy: rm.y + 1.6, hp: 20, hitFlash: 0 }
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'vase',
+          gx: rm.x + 1.6,
+          gy: rm.y + 1.6,
+          hp: 15,
+          hitFlash: 0,
+        },
+        {
+          id: nextPropId++,
+          roomId: rm.id,
+          kind: 'crate',
+          gx: rm.x + rm.w - 1.6,
+          gy: rm.y + 1.6,
+          hp: 20,
+          hitFlash: 0,
+        }
       );
     }
   }
 
-  // Connect rooms with 3-tile wide corridors & register iron door gate tiles at room borders
   const connections: [number, number][] = [
     [1, 2],
     [2, 3],
@@ -821,7 +1091,6 @@ export function generateDungeonFloor(
     }
   }
 
-  // Surround all carved floors & corridors with 2.5D dungeon walls and torches
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       if (tiles[y][x].type === 'void') {
@@ -846,7 +1115,8 @@ export function generateDungeonFloor(
 
   const startRoom = rooms.find((r) => r.kind === 'START_ROOM')!;
   const bossRoom = rooms.find((r) => r.kind === 'BOSS_ROOM')!;
-  tiles[Math.floor(bossRoom.cy)][Math.floor(bossRoom.cx)].type = 'portal_pedestal';
+  tiles[Math.floor(bossRoom.cy)][Math.floor(bossRoom.cx)].type =
+    'portal_pedestal';
 
   const enemies: Enemy[] = [];
   const interactables: Interactable[] = [];
@@ -1035,7 +1305,8 @@ export function generateDungeonFloor(
 
   for (const rm of rooms) {
     if (rm.kind === 'COMBAT_ROOM') {
-      const count = 4 + (floorNum > 1 ? 1 : 0) + (difficulty !== 'normal' ? 1 : 0);
+      const count =
+        4 + (floorNum > 1 ? 1 : 0) + (difficulty !== 'normal' ? 1 : 0);
       for (let i = 0; i < count; i++) {
         const ex = rm.x + 2.2 + Math.random() * (rm.w - 4.4);
         const ey = rm.y + 2.2 + Math.random() * (rm.h - 4.4);
@@ -1111,15 +1382,9 @@ export function generateDungeonFloor(
         label: 'Energy Crystal (+120 Mana)',
       });
     } else if (rm.kind === 'BOSS_ROOM') {
-      enemies.push(
-        createEnemy(rm.id, 'warden_boss', rm.cx + 1.8, rm.cy)
-      );
-      enemies.push(
-        createEnemy(rm.id, 'necro_mage', rm.cx - 2.5, rm.cy - 2.2)
-      );
-      enemies.push(
-        createEnemy(rm.id, 'goblin', rm.cx - 2.5, rm.cy + 2.2)
-      );
+      enemies.push(createEnemy(rm.id, 'warden_boss', rm.cx + 1.8, rm.cy));
+      enemies.push(createEnemy(rm.id, 'necro_mage', rm.cx - 2.5, rm.cy - 2.2));
+      enemies.push(createEnemy(rm.id, 'goblin', rm.cx - 2.5, rm.cy + 2.2));
     }
   }
 

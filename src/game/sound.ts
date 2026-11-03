@@ -30,6 +30,70 @@ class SoundEngine {
     this.muted = muted;
   }
 
+  // Tiếng "Click" cơ học đã tai khi bấm nút UI / Đổi Skin
+  public playUiClick(highPitch = false) {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(highPitch ? 820 : 620, now);
+    osc.frequency.exponentialRampToValueAtTime(highPitch ? 1240 : 280, now + 0.038);
+
+    gain.gain.setValueAtTime(0.11, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.042);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  }
+
+  // Tiếng "Ching!" rực rỡ khi mở khóa Tướng / Skin / Nhận Kim Cương
+  public playChing() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const notes = [1046.5, 1318.51, 1567.98, 2093.0];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.045);
+
+      gain.gain.setValueAtTime(0.16, now + i * 0.045);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.045 + 0.34);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.045);
+      osc.stop(now + i * 0.045 + 0.35);
+    });
+  }
+
+  // Tiếng rung rương Gacha hồi hộp
+  public playChestRoll() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < 8; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(220 + i * 55, now + i * 0.085);
+      gain.gain.setValueAtTime(0.09, now + i * 0.085);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.085 + 0.07);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.085);
+      osc.stop(now + i * 0.085 + 0.075);
+    }
+  }
+
   // Tiếng bước chân "tạch tạch" 8-bit retro
   public playFootstep() {
     const ctx = this.ensureContext();

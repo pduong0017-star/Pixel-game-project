@@ -31,6 +31,7 @@ import {
   PetId,
   PlayerProfile,
   Projectile,
+  SkinTier,
   SlashEffect,
   TelegraphZone,
   WeaponId,
@@ -51,6 +52,7 @@ export class IsometricGameEngine {
 
   public gameState: GameState = 'TITLE_MENU';
   public selectedClass: HeroClassId = 'knight';
+  public selectedSkinTier: SkinTier = 'default';
   public selectedPet: PetId = 'cat';
   public selectedDifficulty: DifficultyId = 'normal';
 
@@ -253,6 +255,11 @@ export class IsometricGameEngine {
 
   public selectDifficulty(diff: DifficultyId) {
     this.selectedDifficulty = diff;
+    this.syncHud();
+  }
+
+  public selectSkin(tier: SkinTier) {
+    this.selectedSkinTier = tier;
     this.syncHud();
   }
 
@@ -460,10 +467,14 @@ export class IsometricGameEngine {
     this.player.maxSkillCooldown = cfg.skillCooldown;
     this.player.gold = 30 + bonusGold;
 
-    // Equip Pre-Run Weapon if purchased in Main Menu Armory!
-    const primaryWpn = this.profile.preRunWeapon || cfg.starterWeaponId;
+    this.selectedSkinTier = this.profile.selectedSkins?.[cls] || 'default';
+
+    // Equip Pre-Run Weapon or Armory Starter Weapon!
+    const customPrimary =
+      this.profile.preRunWeapon || this.profile.selectedStarterWeapon;
+    const primaryWpn = customPrimary || cfg.starterWeaponId;
     const secondaryWpn =
-      this.profile.preRunWeapon && this.profile.preRunWeapon !== cfg.starterWeaponId
+      customPrimary && customPrimary !== cfg.starterWeaponId
         ? cfg.starterWeaponId
         : cfg.secondaryWeaponId;
 
@@ -1626,6 +1637,74 @@ export class IsometricGameEngine {
       }
       this.spawnParticles(p.gx, p.gy, 10, 30, '#84cc16', 4.8);
       this.addFloatingText(p.gx, p.gy, 30, 'VENOM CONCOCTION!', '#a3e635', 1.15);
+    } else if (this.selectedClass === 'necromancer') {
+      // Soul Necromancer Skill: Abyssal Soul Harvest (+15 HP, +40 MP & 10 Soul Bolts)
+      p.hp = Math.min(p.maxHp, p.hp + 15);
+      p.mana = Math.min(p.maxMana, p.mana + 40);
+      for (let i = 0; i < 10; i++) {
+        const ang = (i / 10) * Math.PI * 2 + this.globalTime;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 11.2,
+          vy: Math.sin(ang) * 11.2,
+          damage: Math.round(52 * p.damageMultiplier),
+          radius: 0.45,
+          maxLife: 0.9,
+          color: '#c084fc',
+          coreColor: '#38bdf8',
+          piercing: true,
+          chainLightning: true,
+        });
+      }
+      this.spawnParticles(p.gx, p.gy, 10, 34, '#c084fc', 5.0);
+      this.addFloatingText(p.gx, p.gy, 30, 'SOUL HARVEST!', '#e879f9', 1.2);
+    } else if (this.selectedClass === 'berserker') {
+      // Blood Berserker Skill: Ragnarok Blood Rage (Giant 360 Slash + 6 Crimson Waves)
+      p.invulnTimer = Math.max(p.invulnTimer, 0.9);
+      p.dashCooldown = 0;
+      this.slashes.push({
+        gx: p.gx,
+        gy: p.gy,
+        angle: p.aimAngle,
+        radius: 3.9,
+        arcSpread: Math.PI * 2,
+        timer: 0.3,
+        maxTimer: 0.3,
+        color: '#f43f5e',
+        coreColor: '#fef08a',
+      });
+      for (const en of [...this.dungeon.enemies]) {
+        const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+        if (d <= 4.1) {
+          this.damageEnemy(
+            en,
+            Math.round(92 * p.damageMultiplier),
+            (en.gx - p.gx) / (d || 1),
+            (en.gy - p.gy) / (d || 1)
+          );
+        }
+      }
+      for (let i = -2; i <= 3; i++) {
+        const ang = p.aimAngle + i * 0.25;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 13.5,
+          vy: Math.sin(ang) * 13.5,
+          damage: Math.round(56 * p.damageMultiplier),
+          radius: 0.5,
+          maxLife: 0.72,
+          color: '#f43f5e',
+          coreColor: '#fde047',
+          piercing: true,
+          explosive: true,
+        });
+      }
+      this.spawnParticles(p.gx, p.gy, 10, 36, '#f43f5e', 5.2);
+      this.addFloatingText(p.gx, p.gy, 30, 'RAGNAROK RAGE!', '#fb7185', 1.25);
     } else {
       p.dashCooldown = 0;
       for (let i = -2; i <= 3; i++) {
@@ -2675,6 +2754,7 @@ export class IsometricGameEngine {
       roomLocked: Boolean(curRoom?.locked),
       damageDealt: p.damageDealt,
       heroClass: this.selectedClass,
+      skinTier: this.selectedSkinTier,
       petId: this.selectedPet,
       petName: PETS[this.selectedPet].name,
       activeWeapon: activeWpn,
@@ -3434,9 +3514,25 @@ export class IsometricGameEngine {
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    const frames = this.sprites.heroes[this.selectedClass];
+    // Legendary Skin Halo & Aura Ring
+    if (this.selectedSkinTier === 'legendary') {
+      const skinCfg = HERO_CLASSES[this.selectedClass].skins.legendary;
+      ctx.save();
+      ctx.strokeStyle = skinCfg.auraColor || '#fde047';
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([4, 3]);
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(baseScr.x, baseScr.y, 22, 11.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    const skinFrames =
+      this.sprites.heroesSkins?.[this.selectedClass]?.[this.selectedSkinTier] ||
+      this.sprites.heroes[this.selectedClass];
     const frameIdx = Math.floor(p.animPhase) % 2;
-    const sprite = frames[frameIdx];
+    const sprite = skinFrames[frameIdx];
 
     ctx.save();
     ctx.translate(Math.round(scr.x), Math.round(scr.y));

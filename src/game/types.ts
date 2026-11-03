@@ -20,7 +20,27 @@ export interface DifficultyConfig {
   accent: string;
 }
 
-export type HeroClassId = 'knight' | 'pyromancer' | 'rogue' | 'alchemist';
+export type HeroClassId =
+  | 'knight'
+  | 'pyromancer'
+  | 'rogue'
+  | 'alchemist'
+  | 'necromancer'
+  | 'berserker';
+
+export type SkinTier = 'default' | 'rare' | 'legendary';
+
+export interface HeroSkinConfig {
+  id: string; // e.g. 'knight_default', 'knight_rare', 'knight_legendary'
+  tier: SkinTier;
+  name: string;
+  rarityLabel: 'MẶC ĐỊNH' | 'HIẾM (RARE)' | 'HUYỀN THOẠI (LEGENDARY)';
+  cost: number; // 0 for default
+  accentColor: string;
+  auraColor?: string; // Legendary skin aura effect
+  paletteOverride?: Record<string, string>;
+}
+
 export type PetId = 'cat' | 'mini_slime' | 'baby_dragon';
 export type AvatarId =
   | 'knight_helm'
@@ -35,6 +55,7 @@ export interface HeroClassConfig {
   name: string;
   title: string;
   description: string;
+  unlockCost: number; // 0 if unlocked by default
   maxHp: number;
   maxArmor: number;
   maxMana: number;
@@ -46,6 +67,7 @@ export interface HeroClassConfig {
   skillDesc: string;
   skillCooldown: number;
   accentColor: string;
+  skins: Record<SkinTier, HeroSkinConfig>;
 }
 
 export interface PetConfig {
@@ -102,15 +124,32 @@ export interface PermanentUpgrades {
   goldLevel: number; // +20 Starting Gold per level
 }
 
+export interface DailyQuest {
+  id: string;
+  title: string;
+  desc: string;
+  target: number;
+  progress: number;
+  rewardGems: number;
+  claimed: boolean;
+}
+
 export interface PlayerProfile {
   playerName: string;
   avatarId: AvatarId;
   soulGems: number;
   totalKills: number;
   runsCompleted: number;
+  chestsOpened: number;
   upgrades: PermanentUpgrades;
+  unlockedHeroes: HeroClassId[];
+  unlockedSkins: string[];
+  selectedSkins: Record<HeroClassId, SkinTier>;
+  unlockedWeapons: WeaponId[];
+  selectedStarterWeapon: WeaponId | null;
   preRunWeapon: WeaponId | null;
   preRunPotion: boolean;
+  dailyQuests: DailyQuest[];
 }
 
 export interface GameSettings {
@@ -379,6 +418,7 @@ export interface HudSnapshot {
   roomLocked: boolean;
   damageDealt: number;
   heroClass: HeroClassId;
+  skinTier: SkinTier;
   petId: PetId;
   petName: string;
   activeWeapon: WeaponConfig;

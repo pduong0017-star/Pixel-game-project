@@ -384,3 +384,60 @@ export function PausePixelIcon({ className = 'w-4 h-4' }: { className?: string }
     </svg>
   );
 }
+
+export function LockPixelIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <path d="M5 7V4H6V3H10V4H11V7H9V5H7V7H5Z" fill="#CBD5E1" />
+      <rect x="3" y="7" width="10" height="8" rx="1" fill="#F59E0B" />
+      <rect x="4" y="8" width="8" height="6" fill="#FDE047" />
+      <rect x="7" y="9" width="2" height="3" fill="#0F172A" />
+    </svg>
+  );
+}
+
+export function QuestScrollIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <rect x="2" y="1" width="12" height="2" fill="#D97706" />
+      <rect x="3" y="3" width="10" height="10" fill="#FEF08A" />
+      <rect x="5" y="5" width="6" height="1.5" fill="#92400E" />
+      <rect x="5" y="8" width="6" height="1.5" fill="#92400E" />
+      <rect x="5" y="11" width="4" height="1.5" fill="#92400E" />
+      <rect x="2" y="13" width="12" height="2" fill="#D97706" />
+    </svg>
+  );
+}
+
+export function ChestGachaIcon({ className = 'w-6 h-6' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <rect x="1" y="3" width="14" height="4" fill="#A855F7" />
+      <rect x="1" y="7" width="14" height="7" fill="#7E22CE" />
+      <rect x="1" y="6" width="14" height="2" fill="#FDE047" />
+      <rect x="6" y="5" width="4" height="4" fill="#FEF08A" />
+      <rect x="7" y="6" width="2" height="2" fill="#38BDF8" />
+    </svg>
+  );
+}
+
+export function AnvilArmoryIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <path d="M1 5H13V8H10V11H12V14H4V11H6V8H3L1 5Z" fill="#94A3B8" />
+      <rect x="4" y="3" width="8" height="2" fill="#E2E8F0" />
+      <rect x="7" y="1" width="2" height="2" fill="#F59E0B" />
+    </svg>
+  );
+}
+
+export function SparkleCrownIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <polygon points="2,13 1,5 5,8 8,3 11,8 15,5 14,13" fill="#FDE047" />
+      <rect x="2" y="13" width="12" height="2" fill="#F59E0B" />
+      <rect x="7" y="9" width="2" height="2" fill="#EF4444" />
+    </svg>
+  );
+}
+

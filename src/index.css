@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --font-display: 'Silkscreen', 'Cinzel', serif;
+    --font-pixel: 'Press Start 2P', 'Silkscreen', monospace;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   html,
   body,
   #root {
@@ -9,20 +23,173 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #07090e;
-    color: #f8fafc;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    user-select: none;
-    -webkit-user-select: none;
+    background-color: #06080d;
+    color: #f4f4f6;
+    font-family: var(--font-sans);
     touch-action: none;
   }
 }
 
 .font-display {
-  font-family: 'Cinzel', Georgia, serif;
+  font-family: var(--font-display);
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
 }
 
 .font-mono-tabular {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   TACTILE 3D PIXEL-ART GAME BUTTONS (Box-shadow dày, lún xuống & phát sáng khi bấm)
+   ============================================================================ */
+.btn-3d {
+  position: relative;
+  transition: transform 0.08s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.08s ease, filter 0.12s ease;
+  cursor: pointer;
+}
+
+.btn-3d:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-3d:active:not(:disabled) {
+  transform: translateY(4px);
+  filter: brightness(1.22);
+}
+
+.btn-3d-amber {
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+  border: 2px solid #fef08a;
+  color: #090b10;
+  box-shadow: 0 5px 0 #92400e, 0 8px 18px rgba(245, 158, 11, 0.38);
+}
+.btn-3d-amber:active:not(:disabled) {
+  box-shadow: 0 1px 0 #92400e, 0 0 22px rgba(254, 240, 138, 0.75);
+}
+
+.btn-3d-cyan {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  border: 2px solid #bae6fd;
+  color: #082f49;
+  box-shadow: 0 5px 0 #075985, 0 8px 18px rgba(56, 189, 248, 0.35);
+}
+.btn-3d-cyan:active:not(:disabled) {
+  box-shadow: 0 1px 0 #075985, 0 0 22px rgba(186, 230, 253, 0.75);
+}
+
+.btn-3d-purple {
+  background: linear-gradient(180deg, #c084fc 0%, #9333ea 100%);
+  border: 2px solid #f3e8ff;
+  color: #ffffff;
+  box-shadow: 0 5px 0 #581c87, 0 8px 20px rgba(168, 85, 247, 0.42);
+}
+.btn-3d-purple:active:not(:disabled) {
+  box-shadow: 0 1px 0 #581c87, 0 0 24px rgba(216, 180, 254, 0.8);
+}
+
+.btn-3d-emerald {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+  border: 2px solid #a7f3d0;
+  color: #022c22;
+  box-shadow: 0 5px 0 #065f46, 0 8px 18px rgba(16, 185, 129, 0.35);
+}
+.btn-3d-emerald:active:not(:disabled) {
+  box-shadow: 0 1px 0 #065f46, 0 0 22px rgba(167, 243, 208, 0.75);
+}
+
+.btn-3d-rose {
+  background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+  border: 2px solid #fecdd3;
+  color: #ffffff;
+  box-shadow: 0 5px 0 #881337, 0 8px 18px rgba(244, 63, 94, 0.35);
+}
+.btn-3d-rose:active:not(:disabled) {
+  box-shadow: 0 1px 0 #881337, 0 0 22px rgba(254, 205, 211, 0.75);
+}
+
+.btn-3d-slate {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #475569;
+  color: #f1f5f9;
+  box-shadow: 0 5px 0 #020617, 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+.btn-3d-slate:active:not(:disabled) {
+  box-shadow: 0 1px 0 #020617, 0 0 16px rgba(148, 163, 184, 0.45);
+}
+
+/* ============================================================================
+   JUICE & POLISH ANIMATIONS (Modal Scale Bounce, Chest Shake, Torch & Ash Particles)
+   ============================================================================ */
+@keyframes modalScaleBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(18px);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.03) translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-pop {
+  animation: modalScaleBounce 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes chestRumble {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  15% { transform: translate(-6px, -4px) rotate(-7deg) scale(1.08); }
+  30% { transform: translate(6px, -2px) rotate(7deg) scale(1.1); }
+  45% { transform: translate(-7px, 2px) rotate(-8deg) scale(1.12); }
+  60% { transform: translate(7px, -4px) rotate(8deg) scale(1.14); }
+  75% { transform: translate(-5px, 3px) rotate(-5deg) scale(1.12); }
+  90% { transform: translate(5px, -2px) rotate(5deg) scale(1.08); }
+}
+
+.animate-chest-shake {
+  animation: chestRumble 0.48s infinite ease-in-out;
+}
+
+@keyframes emberRise {
+  0% {
+    transform: translateY(0) translateX(0) scale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translateY(-120px) translateX(18px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+.animate-ember {
+  animation: emberRise 4.2s infinite ease-in;
+}
+
+@keyframes torchFlicker {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+.animate-torch {
+  animation: torchFlicker 1.6s infinite ease-in-out;
 }
