@@ -1,4 +1,7 @@
+export type LanguageCode = 'vi' | 'en' | 'ja' | 'ko';
+
 export type GameState =
+  | 'SPLASH_TITLE'
   | 'TITLE_MENU'
   | 'PLAYING'
   | 'BOON_SELECT'
@@ -31,14 +34,41 @@ export type HeroClassId =
 export type SkinTier = 'default' | 'rare' | 'legendary';
 
 export interface HeroSkinConfig {
-  id: string; // e.g. 'knight_default', 'knight_rare', 'knight_legendary'
+  id: string;
   tier: SkinTier;
   name: string;
+  badge: string;
   rarityLabel: 'MẶC ĐỊNH' | 'HIẾM (RARE)' | 'HUYỀN THOẠI (LEGENDARY)';
-  cost: number; // 0 for default
+  cost: number;
   accentColor: string;
-  auraColor?: string; // Legendary skin aura effect
+  auraColor?: string;
   paletteOverride?: Record<string, string>;
+}
+
+export type RaceId = 'human' | 'elf' | 'demon' | 'orc' | 'undead';
+export type HornStyle = 'none' | 'demon_horns' | 'dragon_antlers' | 'crown_spikes';
+export type WingStyle = 'none' | 'angel_wings' | 'bat_wings' | 'cyber_wings';
+export type EarStyle = 'human' | 'elf_long' | 'beast_ears';
+
+export interface RaceCustomization {
+  raceId: RaceId;
+  skinColor: string;
+  hornStyle: HornStyle;
+  wingStyle: WingStyle;
+  earStyle: EarStyle;
+  eyeColor: string;
+}
+
+export interface RaceConfig {
+  id: RaceId;
+  accent: string;
+  hpBonus: number;
+  armorBonus: number;
+  manaBonus: number;
+  critBonus: number;
+  speedBonus: number;
+  dmgBonus: number;
+  defaultCustom: Omit<RaceCustomization, 'raceId'>;
 }
 
 export type PetId = 'cat' | 'mini_slime' | 'baby_dragon';
@@ -55,7 +85,7 @@ export interface HeroClassConfig {
   name: string;
   title: string;
   description: string;
-  unlockCost: number; // 0 if unlocked by default
+  unlockCost: number;
   maxHp: number;
   maxArmor: number;
   maxMana: number;
@@ -85,19 +115,29 @@ export type WeaponId =
   | 'broadsword'
   | 'twin_daggers'
   | 'excalibur'
+  | 'blood_katana'
+  | 'void_scythe'
+  | 'inferno_greataxe'
+  | 'thunder_warhammer'
+  | 'dragon_lance'
   | 'pioneer_pistol'
   | 'splitter_shotgun'
   | 'plasma_rifle'
+  | 'gatling_minigun'
+  | 'sniper_railgun'
   | 'frost_laser'
   | 'thunder_staff'
   | 'inferno_bow';
 
 export type WeaponType = 'melee' | 'gun' | 'staff' | 'bow';
+export type MeleeStyle = 'slash' | 'spin' | 'smash' | 'thrust';
 
 export interface WeaponConfig {
   id: WeaponId;
   name: string;
   type: WeaponType;
+  meleeStyle?: MeleeStyle;
+  canDeflect?: boolean;
   damage: number;
   manaCost: number;
   cooldown: number;
@@ -117,11 +157,11 @@ export interface WeaponConfig {
 }
 
 export interface PermanentUpgrades {
-  hpLevel: number; // +15 Max HP per level
-  armorLevel: number; // +8 Max Shield per level
-  manaLevel: number; // +25 Max Mana per level
-  dmgLevel: number; // +8% Damage per level
-  goldLevel: number; // +20 Starting Gold per level
+  hpLevel: number;
+  armorLevel: number;
+  manaLevel: number;
+  dmgLevel: number;
+  goldLevel: number;
 }
 
 export interface DailyQuest {
@@ -143,8 +183,9 @@ export interface PlayerProfile {
   chestsOpened: number;
   upgrades: PermanentUpgrades;
   unlockedHeroes: HeroClassId[];
-  unlockedSkins: string[];
+  unlockedSkins: Record<HeroClassId, SkinTier[]>;
   selectedSkins: Record<HeroClassId, SkinTier>;
+  raceCustom: RaceCustomization;
   unlockedWeapons: WeaponId[];
   selectedStarterWeapon: WeaponId | null;
   preRunWeapon: WeaponId | null;
@@ -153,7 +194,9 @@ export interface PlayerProfile {
 }
 
 export interface GameSettings {
+  language: LanguageCode;
   muted: boolean;
+  bgmMuted: boolean;
   shakeIntensity: 'off' | 'normal' | 'high';
   autoAim: boolean;
   showDamageNumbers: boolean;
@@ -310,6 +353,7 @@ export interface GhostTrail {
 export interface Projectile {
   active: boolean;
   fromPlayer: boolean;
+  deflected?: boolean;
   gx: number;
   gy: number;
   gz: number;
@@ -363,6 +407,9 @@ export interface SlashEffect {
   maxTimer: number;
   color: string;
   coreColor: string;
+  swingParity?: number;
+  meleeStyle?: MeleeStyle;
+  weaponId?: WeaponId;
 }
 
 export interface LightningBolt {

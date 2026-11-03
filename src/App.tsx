@@ -26,12 +26,18 @@ import {
 } from './components/Icons';
 import { IsometricGameEngine } from './game/GameEngine';
 import { DIFFICULTIES, HERO_CLASSES, PETS, WEAPONS } from './game/dungeonGen';
-import { getSpriteBank } from './game/pixelSprites';
+import { I18N, LANG_OPTIONS } from './game/i18n';
+import { drawCustomizedHero, getSpriteBank } from './game/pixelSprites';
 import { sound } from './game/sound';
-import { usePWAInstall } from './game/usePWAInstall';
 import {
   AVATAR_LIST,
   DEFAULT_PROFILE,
+  EAR_STYLES,
+  EYE_COLORS,
+  HORN_STYLES,
+  RACES,
+  SKIN_TONES,
+  WING_STYLES,
   loadProfile,
   loadSettings,
   saveProfile,
@@ -41,26 +47,33 @@ import {
   AvatarId,
   BoonOption,
   DifficultyId,
+  EarStyle,
   GameSettings,
   GameState,
   HeroClassId,
+  HornStyle,
   HudSnapshot,
+  LanguageCode,
   PermanentUpgrades,
   PetId,
   PlayerProfile,
+  RaceCustomization,
+  RaceId,
   SkinTier,
   WeaponId,
+  WingStyle,
 } from './game/types';
+import { usePWAInstall } from './game/usePWAInstall';
 
 const SKIN_TIERS: SkinTier[] = ['default', 'rare', 'legendary'];
 
 const INITIAL_HUD: HudSnapshot = {
   inLivingRoom: true,
   difficulty: 'normal',
-  hp: 145,
-  maxHp: 145,
-  armor: 65,
-  maxArmor: 65,
+  hp: 155,
+  maxHp: 155,
+  armor: 70,
+  maxArmor: 70,
   mana: 200,
   maxMana: 200,
   gold: 30,
@@ -110,40 +123,40 @@ const UPGRADE_DEFINITIONS: {
   {
     key: 'hpLevel',
     name: 'Vitality Core (+HP)',
-    desc: 'Tăng máu tối đa vĩnh viễn cho mọi nhân vật.',
-    bonusPerLevel: '+15 Max HP / cấp',
+    desc: '+15 Max HP per level for all Heroes.',
+    bonusPerLevel: '+15 Max HP / Lv',
     baseCost: 80,
     accent: '#f43f5e',
   },
   {
     key: 'armorLevel',
     name: 'Aegis Plating (+Shield)',
-    desc: 'Tăng giáp lá chắn tự hồi phục khi giao tranh.',
-    bonusPerLevel: '+8 Shield / cấp',
+    desc: '+8 regenerating Shield per level.',
+    bonusPerLevel: '+8 Shield / Lv',
     baseCost: 90,
     accent: '#94a3b8',
   },
   {
     key: 'manaLevel',
     name: 'Arcane Reservoir (+Mana)',
-    desc: 'Tăng năng lượng tối đa để xả súng & phép.',
-    bonusPerLevel: '+25 Max Mana / cấp',
+    desc: '+25 Max Mana per level for guns & spells.',
+    bonusPerLevel: '+25 Max Mana / Lv',
     baseCost: 75,
     accent: '#38bdf8',
   },
   {
     key: 'dmgLevel',
     name: 'Weapon Mastery (+DMG)',
-    desc: 'Tăng sát thương cho mọi vũ khí cận chiến & súng.',
-    bonusPerLevel: '+8% Sát thương / cấp',
+    desc: '+8% All Weapon & Skill Damage per level.',
+    bonusPerLevel: '+8% DMG / Lv',
     baseCost: 110,
     accent: '#f59e0b',
   },
   {
     key: 'goldLevel',
     name: 'Merchant Vault (+Gold)',
-    desc: 'Khởi đầu trận đấu với nhiều vàng hơn để mua đồ.',
-    bonusPerLevel: '+20 Vàng khởi đầu / cấp',
+    desc: '+20 starting Gold at the start of every run.',
+    bonusPerLevel: '+20 Gold / Lv',
     baseCost: 65,
     accent: '#fde047',
   },
@@ -156,10 +169,12 @@ function HeroMiniPortrait({
   heroId,
   skinTier,
   locked,
+  raceCustom,
 }: {
   heroId: HeroClassId;
   skinTier: SkinTier;
   locked: boolean;
+  raceCustom?: RaceCustomization;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
@@ -170,11 +185,21 @@ function HeroMiniPortrait({
     ctx.clearRect(0, 0, cvs.width, cvs.height);
     ctx.imageSmoothingEnabled = false;
     const bank = getSpriteBank();
-    const sprite = locked
-      ? bank.heroesSilhouette[heroId][0]
-      : bank.heroesSkins[heroId]?.[skinTier]?.[0] || bank.heroes[heroId][0];
-    ctx.drawImage(sprite, 4, 2, 36, 36);
-  }, [heroId, skinTier, locked]);
+    ctx.save();
+    ctx.translate(22, 36);
+    ctx.scale(0.68, 0.68);
+    drawCustomizedHero(
+      ctx,
+      bank,
+      heroId,
+      skinTier,
+      0,
+      raceCustom,
+      0,
+      locked
+    );
+    ctx.restore();
+  }, [heroId, skinTier, locked, raceCustom]);
 
   return (
     <canvas
@@ -213,25 +238,22 @@ function WeaponMiniSprite({ weaponId }: { weaponId: WeaponId }) {
 }
 
 // ============================================================================
-// INTERACTIVE LOBBY PEDESTAL STAGE CANVAS (Hero + Skin + Weapon Swing + Pet)
+// CINEMATIC SPLASH DIORAMA CANVAS (Hero Deflecting Boss Bullets in Real Time)
 // ============================================================================
-function LobbyStageCanvas({
+function SplashDioramaCanvas({
   heroClass,
   skinTier,
-  isLocked,
+  raceCustom,
   petId,
-  weaponId,
-  onCyclePet,
+  deflectToastText,
 }: {
   heroClass: HeroClassId;
   skinTier: SkinTier;
-  isLocked: boolean;
+  raceCustom: RaceCustomization;
   petId: PetId;
-  weaponId: WeaponId;
-  onCyclePet: () => void;
+  deflectToastText: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const swingTriggerRef = useRef<number>(0);
 
   useEffect(() => {
     const cvs = canvasRef.current;
@@ -241,7 +263,212 @@ function LobbyStageCanvas({
 
     const bank = getSpriteBank();
     let rafId = 0;
-    let startTime = performance.now();
+    const startTime = performance.now();
+
+    const renderLoop = (now: number) => {
+      const t = Math.max(0, (now - startTime) / 1000);
+      const w = cvs.width;
+      const h = cvs.height;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.imageSmoothingEnabled = false;
+
+      // Dungeon floor bridge
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h * 0.72, 195, 36, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Magic circle under battle
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.45;
+      ctx.setLineDash([8, 6]);
+      ctx.lineDashOffset = -t * 30;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h * 0.72, 165, 26, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      const frameIdx = Math.abs(Math.floor(t * 4.5)) % 2;
+      const heroX = 112;
+      const heroY = h * 0.68;
+      const bossX = w - 108;
+      const bossY = h * 0.68;
+
+      // Companion Pet
+      const petSprite = (bank.pets[petId] || bank.pets.cat)[frameIdx];
+      if (petSprite) {
+        const petBob = Math.abs(Math.sin(t * 7)) * 5;
+        ctx.save();
+        ctx.translate(heroX - 48, heroY + 4 - petBob);
+        ctx.scale(2.1, 2.1);
+        ctx.drawImage(
+          petSprite,
+          Math.round(-petSprite.width / 2),
+          Math.round(-petSprite.height + 4)
+        );
+        ctx.restore();
+      }
+
+      // Customized Hero on Left
+      const heroBob = Math.abs(Math.sin(t * 4.5)) * 3;
+      ctx.save();
+      ctx.translate(heroX, heroY - heroBob);
+      ctx.scale(2.85, 2.85);
+      drawCustomizedHero(
+        ctx,
+        bank,
+        heroClass,
+        skinTier,
+        frameIdx,
+        raceCustom,
+        t,
+        false
+      );
+      ctx.restore();
+
+      // High-speed Alternating Katana / Excalibur Swing & Bullet Deflection cycle
+      const cycle = t % 1.2;
+      const isSwinging = cycle > 0.42 && cycle < 0.78;
+      const swingProg = isSwinging ? (cycle - 0.42) / 0.36 : 0;
+      const swingParity = Math.floor(t / 1.2) % 2 === 0 ? 1 : -1;
+
+      const wSprite = bank.weapons.blood_katana || bank.weapons.excalibur;
+      if (wSprite) {
+        ctx.save();
+        ctx.translate(heroX + 20, heroY - 28 - heroBob);
+        const angle = isSwinging
+          ? swingParity * (-1.15 + swingProg * 2.3)
+          : -0.25 + Math.sin(t * 4) * 0.1;
+        ctx.rotate(angle);
+        ctx.scale(2.3, swingParity * 2.3);
+        ctx.drawImage(
+          wSprite,
+          Math.round(-wSprite.width * 0.25),
+          Math.round(-wSprite.height / 2)
+        );
+        ctx.restore();
+      }
+
+      // Draw Crescent Slash Arc + Deflect Spark
+      if (isSwinging) {
+        ctx.save();
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 7 * (1 - swingProg * 0.4);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(heroX + 14, heroY - 28, 46, -1.1, 1.0);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(heroX + 14, heroY - 28, 42, -0.85, 0.8);
+        ctx.stroke();
+
+        // Floating "⚡ DEFLECT!" toast
+        ctx.font = "700 10px 'Press Start 2P', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fde047';
+        ctx.fillText(
+          deflectToastText,
+          heroX + 46,
+          heroY - 68 - swingProg * 14
+        );
+        ctx.restore();
+      }
+
+      // Boss (Obsidian Warden) on Right
+      const bossSprite = bank.enemies.boss[frameIdx];
+      if (bossSprite) {
+        const bossBob = Math.abs(Math.sin(t * 3.5)) * 4;
+        ctx.save();
+        ctx.translate(bossX, bossY - bossBob);
+        ctx.scale(-2.6, 2.6);
+        ctx.drawImage(
+          bossSprite,
+          Math.round(-bossSprite.width / 2),
+          Math.round(-bossSprite.height + 6)
+        );
+        ctx.restore();
+      }
+
+      // Projectile flying from Boss -> Hero, then Deflecting back to Boss!
+      const bulletX =
+        cycle < 0.52
+          ? bossX - 30 - (cycle / 0.52) * (bossX - heroX - 75)
+          : heroX + 45 + ((cycle - 0.52) / 0.68) * (bossX - heroX - 65);
+      const bulletY = heroY - 28 + Math.sin(t * 12) * 4;
+      const isDeflected = cycle >= 0.52;
+
+      ctx.save();
+      ctx.fillStyle = isDeflected ? '#fde047' : '#fb7185';
+      ctx.beginPath();
+      ctx.arc(bulletX, bulletY, isDeflected ? 8 : 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(bulletX, bulletY, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      rafId = requestAnimationFrame(renderLoop);
+    };
+
+    rafId = requestAnimationFrame(renderLoop);
+    return () => cancelAnimationFrame(rafId);
+  }, [heroClass, skinTier, raceCustom, petId, deflectToastText]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={440}
+      height={155}
+      className="w-[310px] h-[110px] sm:w-[420px] sm:h-[148px] pointer-events-none select-none"
+    />
+  );
+}
+
+// ============================================================================
+// INTERACTIVE LOBBY PEDESTAL STAGE CANVAS (Hero + Race + Skin + Weapon + Pet)
+// ============================================================================
+function LobbyStageCanvas({
+  heroClass,
+  skinTier,
+  raceCustom,
+  isLocked,
+  petId,
+  weaponId,
+  lockedBannerText,
+  onCyclePet,
+}: {
+  heroClass: HeroClassId;
+  skinTier: SkinTier;
+  raceCustom: RaceCustomization;
+  isLocked: boolean;
+  petId: PetId;
+  weaponId: WeaponId;
+  lockedBannerText: string;
+  onCyclePet: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const swingTriggerRef = useRef<number>(0);
+  const swingParityRef = useRef<1 | -1>(1);
+
+  useEffect(() => {
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    if (!ctx) return;
+
+    const bank = getSpriteBank();
+    let rafId = 0;
+    const startTime = performance.now();
 
     const sparks = Array.from({ length: 18 }, (_, i) => ({
       x: 40 + ((i * 37) % 240),
@@ -271,12 +498,10 @@ function LobbyStageCanvas({
       // 1. Background Dungeon Arch & Flickering Torches
       const drawTorch = (tx: number, ty: number, offset: number) => {
         const flick = Math.sin(t * 14 + offset) * 2.5;
-        // Torch bracket
         ctx.fillStyle = '#334155';
         ctx.fillRect(tx - 4, ty, 8, 18);
         ctx.fillStyle = '#78350f';
         ctx.fillRect(tx - 3, ty + 2, 6, 14);
-        // Outer glow
         const grad = ctx.createRadialGradient(
           tx,
           ty - 6,
@@ -292,7 +517,6 @@ function LobbyStageCanvas({
         ctx.beginPath();
         ctx.arc(tx, ty - 6, 38, 0, Math.PI * 2);
         ctx.fill();
-        // Flame pixels
         ctx.fillStyle = '#ea580c';
         ctx.fillRect(tx - 6, ty - 14 + flick * 0.5, 12, 12);
         ctx.fillStyle = '#facc15';
@@ -306,13 +530,11 @@ function LobbyStageCanvas({
 
       // 2. Stone Pedestal & Arcane Rune Ring
       ctx.save();
-      // Pedestal shadow
       ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
       ctx.beginPath();
       ctx.ellipse(cx, cy + 20, 88, 26, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Pedestal stone base
       ctx.fillStyle = '#0f172a';
       ctx.strokeStyle = '#334155';
       ctx.lineWidth = 3;
@@ -326,7 +548,6 @@ function LobbyStageCanvas({
       ctx.ellipse(cx, cy + 5, 72, 18, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Rotating Magic Circle on Pedestal
       ctx.strokeStyle = primaryGlow;
       ctx.lineWidth = 2;
       ctx.globalAlpha = isLocked ? 0.35 : 0.78;
@@ -338,7 +559,7 @@ function LobbyStageCanvas({
       ctx.setLineDash([]);
       ctx.restore();
 
-      // 3. Legendary Skin Halo & Rising Sparkles
+      // 3. Legendary Skin Halo
       if (!isLocked && skinTier === 'legendary') {
         ctx.save();
         ctx.strokeStyle = skinCfg.auraColor || '#fde047';
@@ -352,7 +573,7 @@ function LobbyStageCanvas({
         ctx.restore();
       }
 
-      // 4. Floating Ember / Aura Particles
+      // 4. Floating Ember Particles
       for (const sp of sparks) {
         const py = ((sp.y - t * sp.vy) % 175) + 175;
         const curY = py % 175;
@@ -366,7 +587,7 @@ function LobbyStageCanvas({
       }
       ctx.globalAlpha = 1;
 
-      // 5. Companion Pet Orbiting / Hopping near Hero's Feet
+      // 5. Companion Pet Orbiting near Hero's Feet
       const petAngle = t * 1.15;
       const petX = cx + Math.cos(petAngle) * 52;
       const petY = cy + 8 + Math.sin(petAngle) * 11;
@@ -376,7 +597,6 @@ function LobbyStageCanvas({
       const petSprite = petFrames[petFrameIdx] || petFrames[0];
       const petFacing = Math.sin(petAngle) >= 0 ? -1 : 1;
 
-      // Pet shadow
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.beginPath();
       ctx.ellipse(petX, petY + 4, 14, 6, 0, 0, Math.PI * 2);
@@ -394,60 +614,62 @@ function LobbyStageCanvas({
         ctx.restore();
       }
 
-      // 6. Hero Sprite (Idle Breathing + Periodic Weapon Swing)
+      // 6. Customized Hero Sprite (with Racial Wings, Horns, Ears, Skin Tone & Eye Glow)
       const frameIdx = Math.abs(Math.floor(t * 3.2)) % 2;
       const breathScaleY = 1 + Math.sin(t * 6.4) * 0.035;
       const breathScaleX = 1 - Math.sin(t * 6.4) * 0.025;
       const heroBob = Math.abs(Math.sin(t * 3.2)) * 3;
 
-      const heroSprite =
-        (isLocked
-          ? bank.heroesSilhouette[heroClass]?.[frameIdx]
-          : bank.heroesSkins[heroClass]?.[skinTier]?.[frameIdx] ||
-            bank.heroes[heroClass]?.[frameIdx]) || bank.heroes.knight[0];
-
-      // Hero ground shadow
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.beginPath();
       ctx.ellipse(cx, cy + 4, 26, 10, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      if (heroSprite) {
-        const heroScale = 3.25;
-        ctx.save();
-        ctx.translate(Math.round(cx), Math.round(cy - heroBob));
-        ctx.scale(heroScale * breathScaleX, heroScale * breathScaleY);
-        ctx.drawImage(
-          heroSprite,
-          Math.round(-heroSprite.width / 2),
-          Math.round(-heroSprite.height + 5)
-        );
-        ctx.restore();
-      }
+      const heroScale = 3.1;
+      ctx.save();
+      ctx.translate(Math.round(cx), Math.round(cy - heroBob));
+      ctx.scale(heroScale * breathScaleX, heroScale * breathScaleY);
+      drawCustomizedHero(
+        ctx,
+        bank,
+        heroClass,
+        skinTier,
+        frameIdx,
+        raceCustom,
+        t,
+        isLocked
+      );
+      ctx.restore();
 
-      // 7. Equipped Weapon & Periodic / Click Slash Animation
+      // 7. Equipped Weapon & Alternating High-Speed Slash Animation
       if (!isLocked) {
         const wSprite = bank.weapons[weaponId];
-        // Auto-swing every 3.2 seconds or when user clicks the stage
-        const autoSwingCycle = t % 3.2;
+        const autoSwingCycle = t % 2.6;
         const manualElapsed = (now - swingTriggerRef.current) / 1000;
-        const isSwinging = autoSwingCycle < 0.32 || manualElapsed < 0.32;
+        const isSwinging = autoSwingCycle < 0.28 || manualElapsed < 0.28;
         const swingProg =
-          manualElapsed < 0.32
-            ? manualElapsed / 0.32
-            : autoSwingCycle < 0.32
-            ? autoSwingCycle / 0.32
+          manualElapsed < 0.28
+            ? manualElapsed / 0.28
+            : autoSwingCycle < 0.28
+            ? autoSwingCycle / 0.28
             : 0;
 
+        const parity =
+          manualElapsed < 0.28
+            ? swingParityRef.current
+            : Math.floor(t / 2.6) % 2 === 0
+            ? 1
+            : -1;
+
         const swingAngle = isSwinging
-          ? -0.9 + Math.sin(swingProg * Math.PI) * 1.9
+          ? parity * (-1.15 + Math.sin(swingProg * Math.PI) * 2.25)
           : Math.sin(t * 3.2) * 0.12 - 0.15;
 
         if (wSprite) {
           ctx.save();
           ctx.translate(Math.round(cx + 22), Math.round(cy - 34 - heroBob));
           ctx.rotate(swingAngle);
-          ctx.scale(2.5, 2.5);
+          ctx.scale(2.45, parity * 2.45);
           ctx.drawImage(
             wSprite,
             Math.round(-wSprite.width * 0.28),
@@ -456,18 +678,19 @@ function LobbyStageCanvas({
           ctx.restore();
         }
 
-        // Draw bright slash arc when swinging!
         if (isSwinging) {
           ctx.save();
-          ctx.strokeStyle = primaryGlow;
-          ctx.lineWidth = 6 * (1 - swingProg * 0.5);
+          ctx.strokeStyle = WEAPONS[weaponId]?.canDeflect
+            ? '#fde047'
+            : primaryGlow;
+          ctx.lineWidth = 6.5 * (1 - swingProg * 0.45);
           ctx.lineCap = 'round';
-          ctx.globalAlpha = 0.85 * (1 - swingProg * 0.4);
+          ctx.globalAlpha = 0.88 * (1 - swingProg * 0.35);
           ctx.beginPath();
           ctx.arc(cx + 12, cy - 34, 48, -1.1, 0.95);
           ctx.stroke();
 
-          ctx.strokeStyle = '#fef08a';
+          ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2.5;
           ctx.beginPath();
           ctx.arc(cx + 12, cy - 34, 44, -0.9, 0.75);
@@ -475,12 +698,11 @@ function LobbyStageCanvas({
           ctx.restore();
         }
       } else {
-        // Locked Mysterious Padlock Text Overlay
         ctx.save();
         ctx.font = "700 10px 'Press Start 2P', monospace";
         ctx.textAlign = 'center';
         ctx.fillStyle = '#fde047';
-        ctx.fillText('🔒 CHƯA MỞ KHÓA', cx, cy - 88);
+        ctx.fillText(lockedBannerText, cx, cy - 88);
         ctx.restore();
       }
 
@@ -489,7 +711,15 @@ function LobbyStageCanvas({
 
     rafId = requestAnimationFrame(renderLoop);
     return () => cancelAnimationFrame(rafId);
-  }, [heroClass, skinTier, isLocked, petId, weaponId]);
+  }, [
+    heroClass,
+    skinTier,
+    raceCustom,
+    isLocked,
+    petId,
+    weaponId,
+    lockedBannerText,
+  ]);
 
   return (
     <canvas
@@ -498,11 +728,83 @@ function LobbyStageCanvas({
       height={200}
       onClick={() => {
         swingTriggerRef.current = performance.now();
+        swingParityRef.current = swingParityRef.current === 1 ? -1 : 1;
         sound.playSlash(true);
         onCyclePet();
       }}
-      title="Chạm vào Sân Khấu để thử Vũ Khí & tương tác Thú Cưng!"
-      className="w-[270px] h-[168px] sm:w-[320px] sm:h-[200px] cursor-pointer select-none"
+      className="w-[265px] h-[165px] sm:w-[310px] sm:h-[194px] cursor-pointer select-none"
+    />
+  );
+}
+
+// ============================================================================
+// LIVE RACIAL CUSTOMIZER PREVIEW CANVAS (For Race Studio Modal)
+// ============================================================================
+function RacePreviewCanvas({
+  heroClass,
+  skinTier,
+  raceCustom,
+}: {
+  heroClass: HeroClassId;
+  skinTier: SkinTier;
+  raceCustom: RaceCustomization;
+}) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const cvs = ref.current;
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    if (!ctx) return;
+    const bank = getSpriteBank();
+    let raf = 0;
+    const start = performance.now();
+
+    const loop = (now: number) => {
+      const t = (now - start) / 1000;
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      ctx.imageSmoothingEnabled = false;
+
+      const cx = cvs.width / 2;
+      const cy = cvs.height * 0.76;
+
+      // Pedestal
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = RACES[raceCustom.raceId]?.accent || '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 4, 48, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      const frameIdx = Math.abs(Math.floor(t * 3.5)) % 2;
+      const bob = Math.abs(Math.sin(t * 3.5)) * 3;
+      ctx.save();
+      ctx.translate(cx, cy - bob);
+      ctx.scale(2.85, 2.85);
+      drawCustomizedHero(
+        ctx,
+        bank,
+        heroClass,
+        skinTier,
+        frameIdx,
+        raceCustom,
+        t,
+        false
+      );
+      ctx.restore();
+
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [heroClass, skinTier, raceCustom]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={180}
+      height={160}
+      className="w-[155px] h-[138px] sm:w-[175px] sm:h-[155px] mx-auto pointer-events-none"
     />
   );
 }
@@ -516,7 +818,7 @@ export default function App() {
   const [profile, setProfile] = useState<PlayerProfile>(() => loadProfile());
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
 
-  const [gameState, setGameState] = useState<GameState>('TITLE_MENU');
+  const [gameState, setGameState] = useState<GameState>('SPLASH_TITLE');
   const [selectedClass, setSelectedClass] = useState<HeroClassId>('knight');
   const [previewSkinTier, setPreviewSkinTier] = useState<SkinTier>('default');
   const [selectedPet, setSelectedPet] = useState<PetId>('cat');
@@ -524,13 +826,19 @@ export default function App() {
     useState<DifficultyId>('normal');
 
   const [activeModal, setActiveModal] = useState<
-    'NONE' | 'SHOP' | 'GACHA' | 'QUESTS' | 'AVATAR' | 'SETTINGS' | 'MOBILE_INSTALL'
+    | 'NONE'
+    | 'SHOP'
+    | 'GACHA'
+    | 'QUESTS'
+    | 'AVATAR'
+    | 'SETTINGS'
+    | 'MOBILE_INSTALL'
+    | 'RACE_STUDIO'
   >('NONE');
   const [shopTab, setShopTab] = useState<'ARMORY' | 'UPGRADES'>('ARMORY');
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, install } = usePWAInstall();
 
-  // Gacha Chest State
   const [gachaState, setGachaState] = useState<'IDLE' | 'SHAKING' | 'REVEALED'>(
     'IDLE'
   );
@@ -547,6 +855,9 @@ export default function App() {
     x: 0,
     y: 0,
   });
+
+  // Current active localization dictionary
+  const t = I18N[settings.language] || I18N.vi;
 
   // Sync profile & settings changes to localStorage + GameEngine
   const updateAndSaveProfile = (
@@ -576,6 +887,7 @@ export default function App() {
     const initialProf = loadProfile();
     const initialSet = loadSettings();
     sound.setMuted(initialSet.muted);
+    sound.setBgmMuted(initialSet.bgmMuted);
 
     const engine = new IsometricGameEngine(
       canvasRef.current,
@@ -625,6 +937,25 @@ export default function App() {
       engineRef.current = null;
     };
   }, []);
+
+  // Switch Language
+  const handleSelectLanguage = (lang: LanguageCode) => {
+    sound.playUiClick(true);
+    updateAndSaveSettings((prev) => ({
+      ...prev,
+      language: lang,
+    }));
+  };
+
+  // Press Start on Cinematic Title Screen -> Enter Main Lobby & Start 8-Bit BGM
+  const handlePressStart = (openRaceStudio: boolean = false) => {
+    sound.playChing();
+    sound.startBgm('lobby');
+    engineRef.current?.setGameState('TITLE_MENU');
+    if (openRaceStudio) {
+      setActiveModal('RACE_STUDIO');
+    }
+  };
 
   // Select Hero Class in Lobby
   const handleSelectClass = (cls: HeroClassId) => {
@@ -701,6 +1032,57 @@ export default function App() {
     engineRef.current?.selectSkin(tier);
   };
 
+  // Update Race Preset or Modular Appearance Trait
+  const handleSelectRacePreset = (raceId: RaceId) => {
+    sound.playUiClick(true);
+    const preset = RACES[raceId].defaultCustom;
+    updateAndSaveProfile((prev) => ({
+      ...prev,
+      raceCustom: {
+        raceId,
+        ...preset,
+      },
+    }));
+  };
+
+  const handleUpdateRaceTrait = (patch: Partial<RaceCustomization>) => {
+    sound.playUiClick(true);
+    updateAndSaveProfile((prev) => ({
+      ...prev,
+      raceCustom: {
+        ...prev.raceCustom,
+        ...patch,
+      },
+    }));
+  };
+
+  const handleRandomizeRaceCustom = () => {
+    sound.playChing();
+    const raceIds = Object.keys(RACES) as RaceId[];
+    const randomRace = raceIds[Math.floor(Math.random() * raceIds.length)];
+    const randomSkin =
+      SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)].color;
+    const randomHorn =
+      HORN_STYLES[Math.floor(Math.random() * HORN_STYLES.length)];
+    const randomWing =
+      WING_STYLES[Math.floor(Math.random() * WING_STYLES.length)];
+    const randomEar = EAR_STYLES[Math.floor(Math.random() * EAR_STYLES.length)];
+    const randomEye =
+      EYE_COLORS[Math.floor(Math.random() * EYE_COLORS.length)].color;
+
+    updateAndSaveProfile((prev) => ({
+      ...prev,
+      raceCustom: {
+        raceId: randomRace,
+        skinColor: randomSkin,
+        hornStyle: randomHorn,
+        wingStyle: randomWing,
+        earStyle: randomEar,
+        eyeColor: randomEye,
+      },
+    }));
+  };
+
   const handleSelectPet = (petId: PetId) => {
     sound.playUiClick(true);
     setSelectedPet(petId);
@@ -735,6 +1117,13 @@ export default function App() {
     updateAndSaveSettings((prev) => ({
       ...prev,
       muted: !prev.muted,
+    }));
+  };
+
+  const handleToggleBgmMute = () => {
+    updateAndSaveSettings((prev) => ({
+      ...prev,
+      bgmMuted: !prev.bgmMuted,
     }));
   };
 
@@ -839,12 +1228,11 @@ export default function App() {
 
     setTimeout(() => {
       sound.playChing();
-      // Gather unowned skins & weapons
       const unownedSkins: { cls: HeroClassId; tier: SkinTier }[] = [];
       (Object.keys(HERO_CLASSES) as HeroClassId[]).forEach((cls) => {
-        (['rare', 'legendary'] as SkinTier[]).forEach((t) => {
-          if (!profile.unlockedSkins?.[cls]?.includes(t)) {
-            unownedSkins.push({ cls, tier: t });
+        (['rare', 'legendary'] as SkinTier[]).forEach((tier) => {
+          if (!profile.unlockedSkins?.[cls]?.includes(tier)) {
+            unownedSkins.push({ cls, tier });
           }
         });
       });
@@ -877,12 +1265,11 @@ export default function App() {
         }
         setGachaReward({
           type: 'skin',
-          title: `SKIN MỚI: ${skinMeta.name.toUpperCase()}`,
-          subtitle: `${HERO_CLASSES[pick.cls].name} (${skinMeta.badge})`,
-          accent:
-            pick.tier === 'legendary' ? '#fde047' : '#38bdf8',
+          title: `SKIN: ${skinMeta.name.toUpperCase()}`,
+          subtitle: `${t.heroes[pick.cls].name} (${skinMeta.badge})`,
+          accent: pick.tier === 'legendary' ? '#fde047' : '#38bdf8',
         });
-      } else if (roll < 0.8 && unownedWeapons.length > 0) {
+      } else if (roll < 0.82 && unownedWeapons.length > 0) {
         const pickWpn =
           unownedWeapons[Math.floor(Math.random() * unownedWeapons.length)];
         const wMeta = WEAPONS[pickWpn];
@@ -894,8 +1281,8 @@ export default function App() {
         }));
         setGachaReward({
           type: 'weapon',
-          title: `VŨ KHÍ MỚI: ${wMeta.name.toUpperCase()}`,
-          subtitle: `Đã mở khóa vĩnh viễn trong Kho Vũ Khí (${wMeta.rarity})`,
+          title: `${t.weapons[pickWpn].name.toUpperCase()}`,
+          subtitle: `${wMeta.rarity} · DMG ${wMeta.damage}`,
           accent: wMeta.rarityColor,
         });
       } else {
@@ -906,8 +1293,8 @@ export default function App() {
         }));
         setGachaReward({
           type: 'gems',
-          title: `KHO BÁU KIM CƯƠNG: +${jackpotGems} 💎`,
-          subtitle: 'Nổ hũ Đá Linh Hồn từ Rương Bí Ẩn!',
+          title: `JACKPOT: +${jackpotGems} 💎`,
+          subtitle: 'Soul Gems Bonus!',
           accent: '#38bdf8',
         });
       }
@@ -978,6 +1365,10 @@ export default function App() {
   };
 
   const classCfg = HERO_CLASSES[selectedClass];
+  const localizedHero = t.heroes[selectedClass];
+  const raceCfg = RACES[profile.raceCustom.raceId] || RACES.human;
+  const localizedRace = t.races[profile.raceCustom.raceId] || t.races.human;
+
   const isHeroLocked = !profile.unlockedHeroes.includes(selectedClass);
   const currentSkinCfg = classCfg.skins[previewSkinTier];
   const isSkinOwned = (
@@ -1006,6 +1397,125 @@ export default function App() {
       />
 
       {/* =====================================================================
+          0. CINEMATIC PRE-GAME SPLASH TITLE SCREEN ("PRESS START" + DIORAMA)
+         ===================================================================== */}
+      {gameState === 'SPLASH_TITLE' && (
+        <div className="absolute inset-0 z-20 flex flex-col justify-between items-center px-4 py-4 sm:py-6 bg-gradient-to-b from-[#06080d]/95 via-[#06080d]/80 to-[#06080d]/95 overflow-y-auto">
+          {/* Top Bar: 4-Language Switcher + BGM/SFX Quick Toggle */}
+          <div className="w-full max-w-5xl flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#090b10]/95 border border-slate-800 text-[10px] font-pixel text-amber-300">
+              <span>⚔ OBSIDIAN SOUL KNIGHTS</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* 4-Language Selector Pill Bar */}
+              <div className="flex items-center gap-1 bg-[#090b10]/95 p-1 rounded-xl border-2 border-slate-800">
+                {LANG_OPTIONS.map((lang) => {
+                  const active = settings.language === lang.code;
+                  return (
+                    <button
+                      key={lang.code}
+                      onClick={() => handleSelectLanguage(lang.code)}
+                      className={`px-2.5 py-1 rounded-lg font-pixel text-[10px] flex items-center gap-1 transition-all cursor-pointer ${
+                        active
+                          ? 'bg-amber-500 text-slate-950 font-bold shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                          : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.short}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={handleToggleBgmMute}
+                className={`btn-3d px-2.5 py-1.5 rounded-xl font-pixel text-[9px] cursor-pointer ${
+                  !settings.bgmMuted ? 'btn-3d-cyan' : 'btn-3d-slate'
+                }`}
+              >
+                🎵 BGM {!settings.bgmMuted ? t.onLabel : t.offLabel}
+              </button>
+
+              <button
+                onClick={handleToggleMute}
+                className="btn-3d btn-3d-slate p-2 rounded-xl flex items-center justify-center cursor-pointer"
+                aria-label="Toggle Sound"
+              >
+                <SoundIcon muted={settings.muted} className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Centerpiece: Animated Title Lockup + Live Battle Deflection Diorama */}
+          <div className="flex flex-col items-center text-center my-auto py-2 max-w-2xl w-full">
+            <div className="w-full max-w-[320px] sm:max-w-[400px] drop-shadow-[0_0_30px_rgba(245,158,11,0.3)]">
+              <ObsidianTitleLockup />
+            </div>
+
+            <div className="text-[10px] sm:text-xs font-pixel text-amber-300/90 tracking-widest mt-1 mb-2">
+              {t.splashSubtitle}
+            </div>
+
+            {/* Live Pixel Battle Diorama (Hero deflecting Boss bullets) */}
+            <div className="relative rounded-2xl bg-[#090b10]/90 border-2 border-slate-800/90 px-3 py-2 shadow-2xl mb-4">
+              <SplashDioramaCanvas
+                heroClass={selectedClass}
+                skinTier={previewSkinTier}
+                raceCustom={profile.raceCustom}
+                petId={selectedPet}
+                deflectToastText={t.deflectToast}
+              />
+              <div className="flex items-center justify-center gap-2 text-[10px] font-mono-tabular text-slate-300 mt-1">
+                <span
+                  className="font-bold"
+                  style={{ color: raceCfg.accent }}
+                >
+                  [{localizedRace.name}]
+                </span>
+                <span>·</span>
+                <span className="text-amber-300 font-bold">
+                  {localizedHero.name}
+                </span>
+                <span>·</span>
+                <span className="text-emerald-400">
+                  {localizedRace.bonusDesc}
+                </span>
+              </div>
+            </div>
+
+            {/* Big Pulsing PRESS START & Customize Race Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-lg">
+              <button
+                onClick={() => handlePressStart(false)}
+                className="btn-3d btn-3d-emerald w-full sm:flex-1 min-h-[54px] py-3.5 px-6 rounded-2xl font-pixel text-xs sm:text-sm tracking-wider flex items-center justify-center gap-2 animate-pulse cursor-pointer shadow-[0_0_30px_rgba(16,185,129,0.4)]"
+              >
+                <span>{t.pressStart}</span>
+              </button>
+
+              <button
+                onClick={() => handlePressStart(true)}
+                className="btn-3d btn-3d-purple w-full sm:w-auto min-h-[54px] py-3.5 px-5 rounded-2xl font-pixel text-[10px] sm:text-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>{t.customizeHeroBtn}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom Version & Audio Notice */}
+          <div className="text-center space-y-1">
+            <div className="text-[10px] font-pixel text-slate-400">
+              {t.versionTag}
+            </div>
+            <div className="text-[11px] font-mono-tabular text-slate-500">
+              {t.soundHint}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           1. INTERACTIVE LOBBY MAIN MENU (Soul Knight / Enter the Gungeon Style)
          ===================================================================== */}
       {gameState === 'TITLE_MENU' && (
@@ -1025,7 +1535,7 @@ export default function App() {
             ))}
           </div>
 
-          {/* ================= TOP BAR: PROFILE + DIFFICULTY + GEMS + QUESTS + SETTINGS ================= */}
+          {/* ================= TOP BAR: PROFILE + DIFFICULTY + LANGUAGE + GEMS + QUESTS + SETTINGS ================= */}
           <div className="relative z-10 w-full max-w-6xl flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
             {/* Left: Player Avatar Button + Difficulty Selector */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -1045,7 +1555,7 @@ export default function App() {
                     <span>{profile.playerName}</span>
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-300">
-                    {currentAvatarInfo.title} · ☠ {profile.totalKills}
+                    {localizedRace.name} · ☠ {profile.totalKills}
                   </div>
                 </div>
               </button>
@@ -1059,7 +1569,7 @@ export default function App() {
                     <button
                       key={diffId}
                       onClick={() => handleSelectDifficulty(diffId)}
-                      className={`px-2.5 py-1 rounded-lg font-pixel text-[9px] sm:text-[10px] transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-lg font-pixel text-[9px] sm:text-[10px] transition-all cursor-pointer ${
                         active
                           ? 'bg-slate-800 text-amber-300 border border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
                           : 'text-slate-400 hover:text-slate-200'
@@ -1068,31 +1578,47 @@ export default function App() {
                         color: active ? dCfg.accent : undefined,
                       }}
                     >
-                      {dCfg.name.split(' ')[0]} ({dCfg.gemMult}x💎)
+                      {t.difficulties[diffId].name} ({dCfg.gemMult}x💎)
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Right: Soul Gems + Daily Quests Scroll + Settings + Mute */}
-            <div className="flex items-center gap-2">
+            {/* Right: Language Quick Switch + Soul Gems + Quests + Settings + Mute */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              {/* Compact Language Pill */}
+              <div className="hidden xl:flex items-center gap-0.5 bg-[#090b10]/95 p-1 rounded-xl border border-slate-800">
+                {LANG_OPTIONS.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleSelectLanguage(lang.code)}
+                    className={`px-1.5 py-0.5 rounded font-pixel text-[9px] cursor-pointer ${
+                      settings.language === lang.code
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {lang.flag} {lang.short}
+                  </button>
+                ))}
+              </div>
+
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#090b10]/95 border-2 border-sky-500/60 text-sky-300 font-pixel text-xs shadow-[0_4px_0_#0c4a6e]">
                 <SoulGemIcon className="w-4 h-4 shrink-0" />
                 <span>{profile.soulGems}</span>
               </div>
 
-              {/* Mobile App / GitHub Deploy 3D Button */}
               {!isInstalled && (
                 <button
                   onClick={() => {
                     sound.playUiClick(true);
                     setActiveModal('MOBILE_INSTALL');
                   }}
-                  className="btn-3d btn-3d-emerald px-3 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
+                  className="btn-3d btn-3d-emerald px-2.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
                 >
                   <PhoneDownloadIcon className="w-4 h-4" />
-                  <span className="hidden md:inline">TẢI VỀ ĐT / GITHUB</span>
+                  <span className="hidden md:inline">{t.mobileApp}</span>
                 </button>
               )}
 
@@ -1102,10 +1628,10 @@ export default function App() {
                   sound.playUiClick(true);
                   setActiveModal('QUESTS');
                 }}
-                className="btn-3d btn-3d-amber relative px-3 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
+                className="btn-3d btn-3d-amber relative px-2.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
               >
                 <QuestScrollIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">NHIỆM VỤ</span>
+                <span className="hidden sm:inline">{t.quests}</span>
                 {claimableQuestsCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 border-2 border-white text-white font-pixel text-[9px] flex items-center justify-center animate-bounce">
                     {claimableQuestsCount}
@@ -1120,7 +1646,7 @@ export default function App() {
                   setActiveModal('SETTINGS');
                 }}
                 className="btn-3d btn-3d-slate p-2 rounded-xl flex items-center justify-center cursor-pointer"
-                aria-label="Cài Đặt"
+                aria-label="Settings"
               >
                 <SettingsPixelIcon className="w-4 h-4" />
               </button>
@@ -1129,7 +1655,7 @@ export default function App() {
               <button
                 onClick={handleToggleMute}
                 className="btn-3d btn-3d-slate p-2 rounded-xl flex items-center justify-center cursor-pointer"
-                aria-label="Âm Thanh"
+                aria-label="Sound"
               >
                 <SoundIcon muted={settings.muted} className="w-4 h-4" />
               </button>
@@ -1138,9 +1664,30 @@ export default function App() {
 
           {/* ================= CENTERPIECE INTERACTIVE LOBBY STAGE ================= */}
           <div className="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-center my-auto py-1 pointer-events-auto">
-            {/* LEFT DOCK (3 Cols): Gacha Mystery Chest + Blacksmith Armory + Sanctuary Upgrades */}
-            <div className="lg:col-span-3 flex flex-row lg:flex-col gap-2 order-2 lg:order-1">
-              {/* 1. Mystery Chest Gacha Button */}
+            {/* LEFT DOCK (3 Cols): Race Studio + Gacha Mystery Chest + Blacksmith Armory + Sanctuary */}
+            <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 order-2 lg:order-1">
+              {/* 1. Race & Appearance Studio Button */}
+              <button
+                onClick={() => {
+                  sound.playUiClick(true);
+                  setActiveModal('RACE_STUDIO');
+                }}
+                className="btn-3d btn-3d-emerald p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-950/90 border-2 border-emerald-300 flex items-center justify-center shrink-0 font-pixel text-sm text-emerald-200">
+                  ✦
+                </div>
+                <div className="min-w-0">
+                  <div className="font-pixel text-[10px] text-slate-950 truncate">
+                    {t.raceStudioBtn}
+                  </div>
+                  <div className="text-[10px] font-mono-tabular text-slate-900 font-bold truncate mt-0.5">
+                    {localizedRace.name} · {t.raceStudioSub}
+                  </div>
+                </div>
+              </button>
+
+              {/* 2. Mystery Chest Gacha Button */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
@@ -1148,82 +1695,91 @@ export default function App() {
                   setGachaReward(null);
                   setActiveModal('GACHA');
                 }}
-                className="btn-3d btn-3d-purple flex-1 p-2.5 sm:p-3 rounded-2xl text-left flex items-center gap-3 cursor-pointer"
+                className="btn-3d btn-3d-purple p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
               >
-                <div className="w-11 h-11 rounded-xl bg-purple-950/90 border-2 border-amber-300 flex items-center justify-center shrink-0 shadow-inner">
-                  <ChestGachaIcon className="w-7 h-7" />
+                <div className="w-10 h-10 rounded-xl bg-purple-950/90 border-2 border-amber-300 flex items-center justify-center shrink-0 shadow-inner">
+                  <ChestGachaIcon className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-pixel text-[10px] sm:text-xs text-amber-200 truncate">
-                    RƯƠNG BÍ ẨN
+                  <div className="font-pixel text-[10px] text-amber-200 truncate">
+                    {t.gachaChest}
                   </div>
-                  <div className="text-[10px] font-mono-tabular text-purple-100 mt-0.5">
-                    Quay Skin & Vũ Khí ·{' '}
+                  <div className="text-[10px] font-mono-tabular text-purple-100 truncate mt-0.5">
+                    {t.gachaSub} ·{' '}
                     <span className="text-amber-300 font-bold">120 💎</span>
                   </div>
                 </div>
               </button>
 
-              {/* 2. Blacksmith Starter Weapon Armory Button */}
+              {/* 3. Blacksmith Starter Weapon Armory Button */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
                   setShopTab('ARMORY');
                   setActiveModal('SHOP');
                 }}
-                className="btn-3d btn-3d-cyan flex-1 p-2.5 sm:p-3 rounded-2xl text-left flex items-center gap-3 cursor-pointer"
+                className="btn-3d btn-3d-cyan p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
               >
-                <div className="w-11 h-11 rounded-xl bg-sky-950/90 border-2 border-cyan-200 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-sky-950/90 border-2 border-cyan-200 flex items-center justify-center shrink-0">
                   <AnvilArmoryIcon className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-pixel text-[10px] sm:text-xs text-slate-950 truncate">
-                    KHO VŨ KHÍ RÈN
+                  <div className="font-pixel text-[10px] text-slate-950 truncate">
+                    {t.armory}
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-900 font-bold truncate mt-0.5">
-                    ⚔ {WEAPONS[activeStarterWeaponId].name}
+                    ⚔ {t.weapons[activeStarterWeaponId].name}
                   </div>
                 </div>
               </button>
 
-              {/* 3. Permanent Stat Sanctuary Upgrades Button */}
+              {/* 4. Permanent Stat Sanctuary Upgrades Button */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
                   setShopTab('UPGRADES');
                   setActiveModal('SHOP');
                 }}
-                className="btn-3d btn-3d-amber flex-1 p-2.5 sm:p-3 rounded-2xl text-left flex items-center gap-3 cursor-pointer"
+                className="btn-3d btn-3d-amber p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
               >
-                <div className="w-11 h-11 rounded-xl bg-amber-950/85 border-2 border-amber-200 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-amber-950/85 border-2 border-amber-200 flex items-center justify-center shrink-0">
                   <ShopPixelIcon className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <div className="font-pixel text-[10px] sm:text-xs text-slate-950 truncate">
-                    THÁNH ĐIỆN
+                  <div className="font-pixel text-[10px] text-slate-950 truncate">
+                    {t.sanctuary}
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-900 font-bold truncate mt-0.5">
-                    Nâng Cấp Chỉ Số Vĩnh Viễn
+                    {t.sanctuarySub}
                   </div>
                 </div>
               </button>
             </div>
 
-            {/* CENTER STAGE (6 Cols): Title + Interactive Hero Pedestal + Skin Switcher [ < ] [ > ] */}
+            {/* CENTER STAGE (6 Cols): Title + Interactive Hero Pedestal + Skin & Race Switcher */}
             <div className="lg:col-span-6 flex flex-col items-center justify-center order-1 lg:order-2">
-              <div className="w-full max-w-[260px] sm:max-w-[300px] -mb-2">
+              <div className="w-full max-w-[240px] sm:max-w-[280px] -mb-2">
                 <ObsidianTitleLockup />
               </div>
 
-              {/* Hero Name + Title + Skin Rarity Pill */}
-              <div className="flex items-center gap-2 mt-1">
+              {/* Hero Name + Race Badge + Skin Rarity Pill */}
+              <div className="flex items-center gap-1.5 flex-wrap justify-center mt-1">
+                <span
+                  className="px-2 py-0.5 rounded font-pixel text-[9px] bg-slate-900 border"
+                  style={{
+                    color: raceCfg.accent,
+                    borderColor: raceCfg.accent,
+                  }}
+                >
+                  {localizedRace.name}
+                </span>
                 <span
                   className="font-pixel text-xs sm:text-sm tracking-wider"
                   style={{
                     color: isHeroLocked ? '#94a3b8' : classCfg.accentColor,
                   }}
                 >
-                  {classCfg.name.toUpperCase()}
+                  {localizedHero.name.toUpperCase()}
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded font-pixel text-[9px] border ${
@@ -1238,14 +1794,16 @@ export default function App() {
                 </span>
               </div>
 
-              {/* INTERACTIVE HERO & PET PEDESTAL CANVAS */}
+              {/* INTERACTIVE HERO, RACE & PET PEDESTAL CANVAS */}
               <div className="relative flex items-center justify-center my-0.5">
                 <LobbyStageCanvas
                   heroClass={selectedClass}
                   skinTier={previewSkinTier}
+                  raceCustom={profile.raceCustom}
                   isLocked={isHeroLocked}
                   petId={selectedPet}
                   weaponId={activeStarterWeaponId}
+                  lockedBannerText={t.lockedHeroBanner}
                   onCyclePet={() => {
                     const order: PetId[] = ['cat', 'mini_slime', 'baby_dragon'];
                     const nextPet =
@@ -1261,7 +1819,7 @@ export default function App() {
                   <button
                     onClick={() => handleCycleSkin(-1)}
                     className="btn-3d btn-3d-slate px-2.5 py-1 rounded-lg font-pixel text-xs cursor-pointer"
-                    aria-label="Skin Trước"
+                    aria-label="Previous Skin"
                   >
                     ◀
                   </button>
@@ -1275,15 +1833,15 @@ export default function App() {
                     </div>
                     <div className="text-[10px] font-mono-tabular text-slate-400">
                       {isSkinOwned
-                        ? 'Đã sở hữu trang phục'
-                        : `Mở khóa: ${currentSkinCfg.cost} 💎`}
+                        ? t.skinOwned
+                        : `${currentSkinCfg.cost} 💎`}
                     </div>
                   </div>
 
                   <button
                     onClick={() => handleCycleSkin(1)}
                     className="btn-3d btn-3d-slate px-2.5 py-1 rounded-lg font-pixel text-xs cursor-pointer"
-                    aria-label="Skin Kế Tiếp"
+                    aria-label="Next Skin"
                   >
                     ▶
                   </button>
@@ -1297,7 +1855,9 @@ export default function App() {
                       className="btn-3d btn-3d-amber px-3.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
                     >
                       <LockPixelIcon className="w-3.5 h-3.5" />
-                      <span>MỞ KHÓA TƯỚNG ({classCfg.unlockCost} 💎)</span>
+                      <span>
+                        {t.unlockHero} ({classCfg.unlockCost} 💎)
+                      </span>
                     </button>
                   )}
 
@@ -1309,7 +1869,9 @@ export default function App() {
                       className="btn-3d btn-3d-purple px-3.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
                     >
                       <SparkleCrownIcon className="w-3.5 h-3.5" />
-                      <span>MUA SKIN ({currentSkinCfg.cost} 💎)</span>
+                      <span>
+                        {t.buySkin} ({currentSkinCfg.cost} 💎)
+                      </span>
                     </button>
                   )}
 
@@ -1334,49 +1896,72 @@ export default function App() {
               </div>
             </div>
 
-            {/* RIGHT DOCK (3 Cols): Hero Stats & Skill Inspect + Big 3D Start Buttons */}
+            {/* RIGHT DOCK (3 Cols): Hero + Race Stats & Skill Inspect + Big 3D Start Buttons */}
             <div className="lg:col-span-3 flex flex-col gap-2 order-3">
               {/* Hero Stats & Skill Card */}
               <div className="bg-[#090b10]/95 border-2 border-slate-800 rounded-2xl p-3 text-left shadow-xl">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
                   <span className="font-pixel text-[10px] text-amber-400">
-                    CHỈ SỐ HIỆP SĨ
+                    {t.heroStats}
                   </span>
-                  <span className="text-[10px] font-mono-tabular text-slate-400">
-                    CRIT {Math.round(classCfg.critChance * 100)}%
+                  <span className="text-[10px] font-mono-tabular text-emerald-400 font-bold">
+                    CRIT{' '}
+                    {Math.round(
+                      (classCfg.critChance + raceCfg.critBonus) * 100
+                    )}
+                    %
                   </span>
                 </div>
 
-                {/* Stat Bars */}
-                <div className="grid grid-cols-3 gap-1.5 mb-2.5 text-center font-mono-tabular">
+                {/* Stat Bars (Including Racial Bonuses!) */}
+                <div className="grid grid-cols-3 gap-1.5 mb-2 text-center font-mono-tabular">
                   <div className="p-1.5 rounded-lg bg-[#111726] border border-rose-500/30">
                     <div className="text-[9px] text-rose-300">HP</div>
                     <div className="text-xs font-bold text-rose-400">
-                      {classCfg.maxHp + profile.upgrades.hpLevel * 15}
+                      {classCfg.maxHp +
+                        raceCfg.hpBonus +
+                        profile.upgrades.hpLevel * 15}
                     </div>
                   </div>
                   <div className="p-1.5 rounded-lg bg-[#111726] border border-slate-600/40">
                     <div className="text-[9px] text-slate-300">SHIELD</div>
                     <div className="text-xs font-bold text-slate-200">
-                      {classCfg.maxArmor + profile.upgrades.armorLevel * 8}
+                      {classCfg.maxArmor +
+                        raceCfg.armorBonus +
+                        profile.upgrades.armorLevel * 8}
                     </div>
                   </div>
                   <div className="p-1.5 rounded-lg bg-[#111726] border border-sky-500/30">
                     <div className="text-[9px] text-sky-300">MANA</div>
                     <div className="text-xs font-bold text-sky-400">
-                      {classCfg.maxMana + profile.upgrades.manaLevel * 25}
+                      {classCfg.maxMana +
+                        raceCfg.manaBonus +
+                        profile.upgrades.manaLevel * 25}
                     </div>
                   </div>
+                </div>
+
+                {/* Racial Passive Row */}
+                <div className="px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-[10px] font-mono-tabular text-slate-300 mb-2 flex items-center justify-between">
+                  <span
+                    className="font-bold"
+                    style={{ color: raceCfg.accent }}
+                  >
+                    {localizedRace.name}
+                  </span>
+                  <span className="text-emerald-400 truncate ml-1">
+                    {localizedRace.bonusDesc}
+                  </span>
                 </div>
 
                 {/* Active Skill Box */}
                 <div className="p-2 rounded-xl bg-[#111726] border border-amber-500/30">
                   <div className="flex items-center gap-1.5 text-[11px] font-pixel text-amber-300 mb-0.5">
                     <SkillStarIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{classCfg.skillName}</span>
+                    <span className="truncate">{localizedHero.skillName}</span>
                   </div>
                   <p className="text-[10px] text-slate-300 leading-snug">
-                    {classCfg.skillDesc}
+                    {localizedHero.skillDesc}
                   </p>
                 </div>
               </div>
@@ -1388,14 +1973,14 @@ export default function App() {
                   className="btn-3d btn-3d-emerald min-h-[46px] w-full py-2.5 px-4 rounded-2xl font-pixel text-xs tracking-wider flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <SwordPixelIcon className="w-5 h-5" />
-                  <span>XUẤT TRẬN (1-1)</span>
+                  <span>{t.startRun}</span>
                 </button>
 
                 <button
                   onClick={handleEnterLivingRoom}
                   className="btn-3d btn-3d-amber min-h-[42px] w-full py-2 px-4 rounded-2xl font-pixel text-[10px] tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <span>VÀO PHÒNG CHỜ LOBBY</span>
+                  <span>{t.enterLivingRoom}</span>
                 </button>
               </div>
             </div>
@@ -1406,9 +1991,11 @@ export default function App() {
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-[#090b10]/95 p-2 rounded-2xl border-2 border-slate-800 shadow-2xl">
               {(Object.keys(HERO_CLASSES) as HeroClassId[]).map((clsId) => {
                 const cfg = HERO_CLASSES[clsId];
+                const locHero = t.heroes[clsId];
                 const isSelected = selectedClass === clsId;
                 const locked = !profile.unlockedHeroes.includes(clsId);
-                const equippedSkin = profile.selectedSkins?.[clsId] || 'default';
+                const equippedSkin =
+                  profile.selectedSkins?.[clsId] || 'default';
 
                 return (
                   <button
@@ -1423,10 +2010,9 @@ export default function App() {
                     <div className="relative shrink-0">
                       <HeroMiniPortrait
                         heroId={clsId}
-                        skinTier={
-                          isSelected ? previewSkinTier : equippedSkin
-                        }
+                        skinTier={isSelected ? previewSkinTier : equippedSkin}
                         locked={locked}
+                        raceCustom={profile.raceCustom}
                       />
                       {locked && (
                         <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-950 border border-amber-400 flex items-center justify-center">
@@ -1446,7 +2032,7 @@ export default function App() {
                             : '#f8fafc',
                         }}
                       >
-                        {cfg.name.split(' ').slice(-1)[0]}
+                        {locHero.name}
                       </div>
                       {locked ? (
                         <div className="text-[9px] font-mono-tabular text-amber-300 font-bold">
@@ -1454,13 +2040,259 @@ export default function App() {
                         </div>
                       ) : (
                         <div className="text-[9px] font-mono-tabular text-emerald-400 truncate">
-                          ★ Đã Mở
+                          {t.unlocked}
                         </div>
                       )}
                     </div>
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 0: RACIAL & COSMETIC CHARACTER STUDIO (Phòng Tạo Chủng Tộc)
+         ===================================================================== */}
+      {activeModal === 'RACE_STUDIO' && (
+        <div className="absolute inset-0 z-30 bg-[#06080d]/92 flex items-center justify-center p-3 sm:p-5">
+          <div className="animate-modal-pop w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#090b10] border-2 border-emerald-400 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
+              <div>
+                <h2 className="font-pixel text-xs sm:text-sm text-emerald-400">
+                  {t.raceStudioTitle}
+                </h2>
+                <p className="text-xs font-mono-tabular text-slate-400 mt-1">
+                  {t.raceStudioDesc}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playUiClick(false);
+                  setActiveModal('NONE');
+                }}
+                className="btn-3d btn-3d-slate px-3 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer shrink-0"
+              >
+                {t.closeBtn}
+              </button>
+            </div>
+
+            {/* Body Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-4 py-3 pr-1">
+              {/* Left Column: Live Animated Preview & Race Passive */}
+              <div className="md:col-span-4 flex flex-col items-center justify-between p-4 rounded-2xl bg-[#111726] border-2 border-slate-800">
+                <div className="text-center">
+                  <div
+                    className="font-pixel text-xs mb-0.5"
+                    style={{ color: raceCfg.accent }}
+                  >
+                    {localizedRace.name}
+                  </div>
+                  <div className="text-[11px] font-mono-tabular text-emerald-400 font-bold">
+                    {localizedRace.bonusDesc}
+                  </div>
+                </div>
+
+                <RacePreviewCanvas
+                  heroClass={selectedClass}
+                  skinTier={previewSkinTier}
+                  raceCustom={profile.raceCustom}
+                />
+
+                <div className="w-full space-y-2">
+                  <button
+                    onClick={handleRandomizeRaceCustom}
+                    className="btn-3d btn-3d-purple w-full py-2.5 px-3 rounded-xl font-pixel text-[10px] cursor-pointer"
+                  >
+                    {t.randomizeBtn}
+                  </button>
+                  <button
+                    onClick={() => {
+                      sound.playChing();
+                      setActiveModal('NONE');
+                    }}
+                    className="btn-3d btn-3d-emerald w-full py-2.5 px-3 rounded-xl font-pixel text-[10px] cursor-pointer"
+                  >
+                    {t.saveCustomBtn}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Modular Race & Feature Selectors */}
+              <div className="md:col-span-8 space-y-3.5 text-left font-mono-tabular">
+                {/* 1. Race Presets */}
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                    {t.racePresetLabel}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {(Object.keys(RACES) as RaceId[]).map((rId) => {
+                      const rMeta = RACES[rId];
+                      const active = profile.raceCustom.raceId === rId;
+                      return (
+                        <button
+                          key={rId}
+                          onClick={() => handleSelectRacePreset(rId)}
+                          className={`p-2 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                            active
+                              ? 'bg-slate-800 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                              : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          <div
+                            className="font-pixel text-[9px] truncate"
+                            style={{ color: rMeta.accent }}
+                          >
+                            {t.races[rId].name}
+                          </div>
+                          <div className="text-[9px] text-slate-300 mt-1 leading-tight">
+                            {t.races[rId].bonusDesc}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Skin Tone & Eye Glow Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                    <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                      {t.skinToneLabel}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {SKIN_TONES.map((tone) => {
+                        const active =
+                          profile.raceCustom.skinColor === tone.color;
+                        return (
+                          <button
+                            key={tone.id}
+                            onClick={() =>
+                              handleUpdateRaceTrait({ skinColor: tone.color })
+                            }
+                            className={`w-8 h-8 rounded-lg border-2 transition-transform cursor-pointer ${
+                              active
+                                ? 'border-white scale-110 shadow-[0_0_10px_#fff]'
+                                : 'border-slate-700'
+                            }`}
+                            style={{ backgroundColor: tone.color }}
+                            title={tone.label}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                    <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                      {t.eyeColorLabel}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {EYE_COLORS.map((eye) => {
+                        const active =
+                          profile.raceCustom.eyeColor === eye.color;
+                        return (
+                          <button
+                            key={eye.id}
+                            onClick={() =>
+                              handleUpdateRaceTrait({ eyeColor: eye.color })
+                            }
+                            className={`w-8 h-8 rounded-full border-2 transition-transform cursor-pointer ${
+                              active
+                                ? 'border-white scale-110 shadow-[0_0_10px_#fff]'
+                                : 'border-slate-700'
+                            }`}
+                            style={{ backgroundColor: eye.color }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Horns Style */}
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                    {t.hornStyleLabel}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {HORN_STYLES.map((hStyle: HornStyle) => {
+                      const active = profile.raceCustom.hornStyle === hStyle;
+                      return (
+                        <button
+                          key={hStyle}
+                          onClick={() =>
+                            handleUpdateRaceTrait({ hornStyle: hStyle })
+                          }
+                          className={`py-2 px-2.5 rounded-xl border font-pixel text-[9px] cursor-pointer ${
+                            active
+                              ? 'bg-amber-500/20 border-amber-400 text-amber-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {t.horns[hStyle]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Wings Style */}
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                    {t.wingStyleLabel}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {WING_STYLES.map((wStyle: WingStyle) => {
+                      const active = profile.raceCustom.wingStyle === wStyle;
+                      return (
+                        <button
+                          key={wStyle}
+                          onClick={() =>
+                            handleUpdateRaceTrait({ wingStyle: wStyle })
+                          }
+                          className={`py-2 px-2.5 rounded-xl border font-pixel text-[9px] cursor-pointer ${
+                            active
+                              ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {t.wings[wStyle]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 5. Ears Style */}
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                    {t.earStyleLabel}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {EAR_STYLES.map((eStyle: EarStyle) => {
+                      const active = profile.raceCustom.earStyle === eStyle;
+                      return (
+                        <button
+                          key={eStyle}
+                          onClick={() =>
+                            handleUpdateRaceTrait({ earStyle: eStyle })
+                          }
+                          className={`py-2 px-2.5 rounded-xl border font-pixel text-[9px] cursor-pointer ${
+                            active
+                              ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {t.ears[eStyle]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1476,7 +2308,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <ChestGachaIcon className="w-6 h-6" />
                 <h2 className="font-pixel text-xs sm:text-sm text-amber-300">
-                  RƯƠNG BÍ ẨN GACHA
+                  {t.gachaModalTitle}
                 </h2>
               </div>
               <button
@@ -1491,16 +2323,12 @@ export default function App() {
             </div>
 
             <div className="flex items-center justify-center gap-2 mb-3">
-              <span className="text-xs font-mono-tabular text-slate-400">
-                Kim cương hiện có:
-              </span>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-sky-500/40 text-sky-300 font-pixel text-xs">
                 <SoulGemIcon className="w-4 h-4" />
                 {profile.soulGems}
               </span>
             </div>
 
-            {/* Animated Chest Pedestal Stage */}
             <div className="relative h-44 rounded-2xl bg-gradient-to-b from-purple-950/50 to-[#0d121d] border-2 border-purple-500/40 flex flex-col items-center justify-center p-4 mb-4 overflow-hidden">
               <div
                 className={`transition-transform ${
@@ -1514,14 +2342,13 @@ export default function App() {
 
               {gachaState === 'IDLE' && (
                 <p className="text-xs font-mono-tabular text-purple-200 mt-3">
-                  Mở Rương để nhận ngẫu nhiên: Trang phục Hiếm/Huyền Thoại, Vũ
-                  Khí Khởi Điểm mới hoặc Nổ Hũ Kim Cương!
+                  {t.gachaModalDesc}
                 </p>
               )}
 
               {gachaState === 'SHAKING' && (
                 <p className="font-pixel text-xs text-amber-300 mt-3 animate-pulse">
-                  ĐANG RUNG LẮC RƯƠNG BÍ ẨN...
+                  {t.gachaShaking}
                 </p>
               )}
 
@@ -1547,9 +2374,7 @@ export default function App() {
             >
               <ChestGachaIcon className="w-5 h-5" />
               <span>
-                {gachaState === 'SHAKING'
-                  ? 'ĐANG MỞ RƯƠNG...'
-                  : 'MỞ RƯƠNG NGAY (120 💎)'}
+                {gachaState === 'SHAKING' ? t.gachaShaking : t.gachaOpenBtn}
               </span>
             </button>
           </div>
@@ -1557,20 +2382,19 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL 2: BLACKSMITH ARMORY & SANCTUARY UPGRADES (Thợ Rèn & Thánh Điện)
+          MODAL 2: BLACKSMITH ARMORY (16 WEAPONS) & SANCTUARY UPGRADES
          ===================================================================== */}
       {activeModal === 'SHOP' && (
         <div className="absolute inset-0 z-30 bg-[#06080d]/90 flex items-center justify-center p-3 sm:p-5">
-          <div className="animate-modal-pop w-full max-w-4xl max-h-[90vh] flex flex-col bg-[#090b10] border-2 border-amber-400 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden">
+          <div className="animate-modal-pop w-full max-w-5xl max-h-[90vh] flex flex-col bg-[#090b10] border-2 border-amber-400 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
               <div>
                 <h2 className="font-pixel text-xs sm:text-base text-amber-400">
-                  THỢ RÈN VŨ KHÍ & THÁNH ĐIỆN NÂNG CẤP
+                  {t.shopModalTitle}
                 </h2>
                 <p className="text-xs font-mono-tabular text-slate-400 mt-1">
-                  Rèn vũ khí khởi điểm vĩnh viễn hoặc cường hóa chỉ số cho toàn
-                  bộ 6 Hiệp Sĩ
+                  {t.shopModalSub}
                 </p>
               </div>
               <div className="flex items-center gap-2.5">
@@ -1585,7 +2409,7 @@ export default function App() {
                   }}
                   className="btn-3d btn-3d-slate px-3 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer"
                 >
-                  ĐÓNG ✕
+                  {t.closeBtn}
                 </button>
               </div>
             </div>
@@ -1601,7 +2425,7 @@ export default function App() {
                   shopTab === 'ARMORY' ? 'btn-3d-cyan' : 'btn-3d-slate'
                 }`}
               >
-                ⚒ 1. THỢ RÈN & VŨ KHÍ KHỞI ĐIỂM
+                {t.tabArmory}
               </button>
               <button
                 onClick={() => {
@@ -1612,7 +2436,7 @@ export default function App() {
                   shopTab === 'UPGRADES' ? 'btn-3d-amber' : 'btn-3d-slate'
                 }`}
               >
-                ★ 2. THÁNH ĐIỆN CHỈ SỐ VĨNH VIỄN
+                {t.tabUpgrades}
               </button>
             </div>
 
@@ -1626,11 +2450,10 @@ export default function App() {
                       <PotionPixelIcon className="w-7 h-7 shrink-0" />
                       <div>
                         <div className="font-pixel text-xs text-rose-300">
-                          BÌNH MÁU TIẾP TẾ (+1 HEALING VIAL)
+                          {t.extraVialTitle}
                         </div>
                         <div className="text-xs text-slate-400 mt-0.5">
-                          Mang thêm 1 bình máu & năng lượng dự trữ vào trận kế
-                          tiếp.
+                          {t.extraVialDesc}
                         </div>
                       </div>
                     </div>
@@ -1643,14 +2466,15 @@ export default function App() {
                           : 'btn-3d-rose'
                       }`}
                     >
-                      {profile.preRunPotion ? 'ĐÃ TRANG BỊ' : 'MUA (50 💎)'}
+                      {profile.preRunPotion ? t.equippedBtn : '50 💎'}
                     </button>
                   </div>
 
-                  {/* All 9 Weapons Blueprint Grid */}
+                  {/* All 16 Weapons Blueprint Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                     {(Object.keys(WEAPONS) as WeaponId[]).map((wId) => {
                       const w = WEAPONS[wId];
+                      const locW = t.weapons[wId];
                       const unlocked = profile.unlockedWeapons.includes(wId);
                       const isEquippedStarter =
                         profile.selectedStarterWeapon === wId;
@@ -1667,25 +2491,32 @@ export default function App() {
                           <div>
                             <div className="flex items-center justify-between gap-2 mb-1">
                               <WeaponMiniSprite weaponId={wId} />
-                              <span className="text-[10px] font-pixel px-2 py-0.5 rounded bg-slate-900 text-slate-300">
-                                {w.rarity}
-                              </span>
+                              <div className="flex items-center gap-1">
+                                {w.canDeflect && (
+                                  <span className="text-[9px] font-pixel px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400 text-amber-300">
+                                    ⚡ DEFLECT
+                                  </span>
+                                )}
+                                <span className="text-[10px] font-pixel px-2 py-0.5 rounded bg-slate-900 text-slate-300">
+                                  {w.rarity}
+                                </span>
+                              </div>
                             </div>
                             <div
                               className="font-pixel text-xs truncate"
                               style={{ color: w.rarityColor }}
                             >
-                              {w.name}
+                              {locW.name}
                             </div>
                             <div className="text-[11px] font-mono-tabular text-slate-300 mt-1">
                               DMG {w.damage} ·{' '}
                               <span className="text-sky-400">
-                                {w.manaCost} Mana
+                                {w.manaCost} MP
                               </span>{' '}
-                              · {w.type.toUpperCase()}
+                              · {w.meleeStyle ? w.meleeStyle.toUpperCase() : w.type.toUpperCase()}
                             </div>
                             <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-                              {w.description}
+                              {locW.desc}
                             </p>
                           </div>
 
@@ -1703,10 +2534,10 @@ export default function App() {
                             }`}
                           >
                             {isEquippedStarter
-                              ? '★ ĐANG MANG VÀO TRẬN'
+                              ? t.equippedBtn
                               : unlocked
-                              ? 'CHỌN MANG VÀO TRẬN'
-                              : `RÈN VŨ KHÍ (${w.shopGemsCost} 💎)`}
+                              ? t.equipStartBtn
+                              : `${t.forgeBtn} (${w.shopGemsCost} 💎)`}
                           </button>
                         </div>
                       );
@@ -1753,7 +2584,7 @@ export default function App() {
                             isMax ? 'btn-3d-emerald' : 'btn-3d-amber'
                           }`}
                         >
-                          {isMax ? 'TỐI ĐA' : `NÂNG (${cost} 💎)`}
+                          {isMax ? t.maxedBtn : `${t.upgradeBtn} (${cost} 💎)`}
                         </button>
                       </div>
                     );
@@ -1766,7 +2597,7 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL 3: DAILY QUESTS SCROLL (Nhiệm Vụ Hằng Ngày)
+          MODAL 3: DAILY QUESTS SCROLL
          ===================================================================== */}
       {activeModal === 'QUESTS' && (
         <div className="absolute inset-0 z-30 bg-[#06080d]/90 flex items-center justify-center p-4">
@@ -1775,7 +2606,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <QuestScrollIcon className="w-6 h-6" />
                 <h2 className="font-pixel text-xs sm:text-sm text-amber-300">
-                  CUỘN NHIỆM VỤ HẰNG NGÀY
+                  {t.questsModalTitle}
                 </h2>
               </div>
               <button
@@ -1792,7 +2623,10 @@ export default function App() {
             <div className="space-y-3">
               {profile.dailyQuests.map((q) => {
                 const completed = q.progress >= q.target;
-                const pct = Math.min(100, Math.round((q.progress / q.target) * 100));
+                const pct = Math.min(
+                  100,
+                  Math.round((q.progress / q.target) * 100)
+                );
                 return (
                   <div
                     key={q.id}
@@ -1812,7 +2646,7 @@ export default function App() {
                         />
                       </div>
                       <div className="text-[10px] font-mono-tabular text-slate-400 mt-1">
-                        Tiến độ: {q.progress}/{q.target}
+                        {t.progressLabel}: {q.progress}/{q.target}
                       </div>
                     </div>
 
@@ -1828,9 +2662,9 @@ export default function App() {
                       }`}
                     >
                       {q.claimed
-                        ? 'ĐÃ NHẬN'
+                        ? t.claimedBtn
                         : completed
-                        ? `NHẬN +${q.rewardGems} 💎`
+                        ? `${t.claimBtn} +${q.rewardGems} 💎`
                         : `+${q.rewardGems} 💎`}
                     </button>
                   </div>
@@ -1842,14 +2676,14 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL 4: AVATAR & PLAYER PROFILE (Hồ Sơ Hiệp Sĩ)
+          MODAL 4: AVATAR & PLAYER PROFILE
          ===================================================================== */}
       {activeModal === 'AVATAR' && (
         <div className="absolute inset-0 z-30 bg-[#06080d]/90 flex items-center justify-center p-4">
           <div className="animate-modal-pop w-full max-w-lg bg-[#090b10] border-2 border-amber-500/70 rounded-2xl p-5 sm:p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <h2 className="font-pixel text-xs sm:text-sm text-amber-400">
-                HỒ SƠ HIỆP SĨ & AVATAR
+                {t.avatarModalTitle}
               </h2>
               <button
                 onClick={() => {
@@ -1864,7 +2698,7 @@ export default function App() {
 
             <div className="mb-4">
               <label className="block text-xs font-mono-tabular text-slate-400 mb-1">
-                Biệt Danh Hiệp Sĩ:
+                {t.nicknameLabel}
               </label>
               <input
                 type="text"
@@ -1882,7 +2716,7 @@ export default function App() {
 
             <div className="mb-4">
               <div className="text-xs font-mono-tabular text-slate-400 mb-2">
-                Chọn Biểu Tượng Avatar:
+                {t.chooseAvatarLabel}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {AVATAR_LIST.map((av) => {
@@ -1926,13 +2760,17 @@ export default function App() {
 
             <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#111726] border border-slate-800 font-mono-tabular text-center">
               <div>
-                <div className="text-[10px] text-slate-400">Quái Đã Hạ</div>
+                <div className="text-[10px] text-slate-400">
+                  {t.totalKillsLabel}
+                </div>
                 <div className="text-sm font-bold text-rose-400">
                   {profile.totalKills}
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-slate-400">Lần Phá Đảo</div>
+                <div className="text-[10px] text-slate-400">
+                  {t.runsClearedLabel}
+                </div>
                 <div className="text-sm font-bold text-amber-400">
                   {profile.runsCompleted}
                 </div>
@@ -1949,14 +2787,14 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL 5: SETTINGS (Cài Đặt Game, Âm Thanh, Rung, Auto-Aim)
+          MODAL 5: SETTINGS (Language, 8-Bit BGM, SFX, Screen Shake, Auto-Aim)
          ===================================================================== */}
       {activeModal === 'SETTINGS' && (
         <div className="absolute inset-0 z-30 bg-[#06080d]/90 flex items-center justify-center p-4">
-          <div className="animate-modal-pop w-full max-w-md bg-[#090b10] border-2 border-slate-700 rounded-2xl p-5 sm:p-6 shadow-2xl">
+          <div className="animate-modal-pop w-full max-w-md bg-[#090b10] border-2 border-slate-700 rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <h2 className="font-pixel text-xs sm:text-sm text-amber-400">
-                CÀI ĐẶT HỆ THỐNG (SETTINGS)
+                {t.settingsModalTitle}
               </h2>
               <button
                 onClick={() => {
@@ -1970,13 +2808,56 @@ export default function App() {
             </div>
 
             <div className="space-y-3 font-mono-tabular text-xs">
+              {/* Language Selector */}
+              <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                <div className="font-bold text-slate-200 mb-2">
+                  {t.languageSetting}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {LANG_OPTIONS.map((lang) => {
+                    const active = settings.language === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        onClick={() => handleSelectLanguage(lang.code)}
+                        className={`py-2 px-2 rounded-lg font-pixel text-[9px] flex items-center justify-center gap-1 cursor-pointer ${
+                          active
+                            ? 'bg-amber-500 text-slate-950 font-bold'
+                            : 'bg-slate-900 text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <span>{lang.flag}</span>
+                        <span>{lang.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 8-Bit Chiptune BGM Toggle */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
                 <div>
-                  <div className="font-bold text-slate-200">
-                    Âm Thanh 8-Bit (Web Audio SFX)
-                  </div>
+                  <div className="font-bold text-slate-200">{t.bgmSetting}</div>
                   <div className="text-[10px] text-slate-400">
-                    Hiệu ứng tiếng chém, súng, bước chân và nhặt ngọc
+                    {t.bgmSettingDesc}
+                  </div>
+                </div>
+                <button
+                  onClick={handleToggleBgmMute}
+                  className={`btn-3d px-3.5 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer ${
+                    !settings.bgmMuted ? 'btn-3d-emerald' : 'btn-3d-slate'
+                  }`}
+                >
+                  {!settings.bgmMuted ? t.onLabel : t.offLabel}
+                </button>
+              </div>
+
+              {/* Web Audio SFX Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
+                <div>
+                  <div className="font-bold text-slate-200">{t.sfxSetting}</div>
+                  <div className="text-[10px] text-slate-400">
+                    {t.sfxSettingDesc}
                   </div>
                 </div>
                 <button
@@ -1985,17 +2866,15 @@ export default function App() {
                     !settings.muted ? 'btn-3d-emerald' : 'btn-3d-slate'
                   }`}
                 >
-                  {!settings.muted ? 'BẬT' : 'TẮT'}
+                  {!settings.muted ? t.onLabel : t.offLabel}
                 </button>
               </div>
 
+              {/* Screen Shake */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
                 <div>
                   <div className="font-bold text-slate-200">
-                    Độ Rung Màn Hình (Screen Shake)
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Cảm giác rung chấn khi nổ súng, chém hoặc trúng đòn
+                    {t.shakeSetting}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -2015,20 +2894,16 @@ export default function App() {
                           : 'bg-slate-900 text-slate-400'
                       }`}
                     >
-                      {lvl === 'off' ? 'Tắt' : lvl === 'normal' ? 'Vừa' : 'Mạnh'}
+                      {lvl}
                     </button>
                   ))}
                 </div>
               </div>
 
+              {/* Auto-Aim */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
-                <div>
-                  <div className="font-bold text-slate-200">
-                    Tự Động Ngắm Bắn (Soul Knight Auto-Aim)
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Tự động khóa mục tiêu quái gần nhất khi bắn
-                  </div>
+                <div className="font-bold text-slate-200">
+                  {t.autoAimSetting}
                 </div>
                 <button
                   onClick={() => {
@@ -2042,18 +2917,14 @@ export default function App() {
                     settings.autoAim ? 'btn-3d-emerald' : 'btn-3d-slate'
                   }`}
                 >
-                  {settings.autoAim ? 'BẬT' : 'TẮT'}
+                  {settings.autoAim ? t.onLabel : t.offLabel}
                 </button>
               </div>
 
+              {/* Damage Numbers */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
-                <div>
-                  <div className="font-bold text-slate-200">
-                    Hiển Thị Số Sát Thương (Damage Numbers)
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Hiện số sát thương & chí mạng bay lên khi đánh trúng
-                  </div>
+                <div className="font-bold text-slate-200">
+                  {t.dmgNumberSetting}
                 </div>
                 <button
                   onClick={() => {
@@ -2069,18 +2940,14 @@ export default function App() {
                       : 'btn-3d-slate'
                   }`}
                 >
-                  {settings.showDamageNumbers ? 'HIỆN' : 'ẨN'}
+                  {settings.showDamageNumbers ? t.onLabel : t.offLabel}
                 </button>
               </div>
 
+              {/* Touch Control Scale */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
-                <div>
-                  <div className="font-bold text-slate-200">
-                    Kích Cỡ Nút Cảm Ứng (Touch Controls)
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Tùy chỉnh kích thước D-Pad và cụm nút kỹ năng
-                  </div>
+                <div className="font-bold text-slate-200">
+                  {t.touchScaleSetting}
                 </div>
                 <div className="flex items-center gap-1">
                   {(['normal', 'large'] as const).map((sz) => (
@@ -2093,13 +2960,13 @@ export default function App() {
                           controlScale: sz,
                         }));
                       }}
-                      className={`px-2.5 py-1 rounded font-bold cursor-pointer ${
+                      className={`px-2.5 py-1 rounded font-bold uppercase cursor-pointer ${
                         settings.controlScale === sz
                           ? 'bg-amber-500 text-slate-950'
                           : 'bg-slate-900 text-slate-400'
                       }`}
                     >
-                      {sz === 'normal' ? 'Chuẩn' : 'Cỡ Lớn'}
+                      {sz}
                     </button>
                   ))}
                 </div>
@@ -2116,7 +2983,7 @@ export default function App() {
                   }}
                   className="btn-3d btn-3d-cyan flex-1 py-2.5 px-3 rounded-xl font-pixel text-[10px] cursor-pointer"
                 >
-                  + NHẬN 300 💎 QUÀ TÂN THỦ
+                  {t.freeGemsBtn}
                 </button>
                 <button
                   onClick={() => {
@@ -2125,7 +2992,7 @@ export default function App() {
                   }}
                   className="btn-3d btn-3d-rose py-2.5 px-3 rounded-xl font-pixel text-[10px] cursor-pointer"
                 >
-                  RESET LƯU TRỮ
+                  {t.resetSaveBtn}
                 </button>
               </div>
             </div>
@@ -2134,7 +3001,7 @@ export default function App() {
       )}
 
       {/* =====================================================================
-          MODAL 6: GITHUB PAGES & MOBILE PWA INSTALL (Tải Game Về Điện Thoại)
+          MODAL 6: GITHUB PAGES & MOBILE PWA INSTALL
          ===================================================================== */}
       {activeModal === 'MOBILE_INSTALL' && (
         <div className="absolute inset-0 z-30 bg-[#06080d]/92 flex items-center justify-center p-3 sm:p-5">
@@ -2143,7 +3010,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <PhoneDownloadIcon className="w-6 h-6" />
                 <h2 className="font-pixel text-xs sm:text-sm text-emerald-400">
-                  TẢI GAME VỀ ĐIỆN THOẠI & TRIỂN KHAI GITHUB (ĐÃ FIX LỖI)
+                  {t.mobileApp} / PWA & GITHUB
                 </h2>
               </div>
               <button
@@ -2158,94 +3025,55 @@ export default function App() {
             </div>
 
             <div className="space-y-3.5 text-xs font-mono-tabular">
-              {/* CÁCH 1: TẢI TRỰC TIẾP FILE GAME OFFLINE (.HTML) HOẶC CÀI PWA */}
               <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-emerald-500/60">
-                <div className="font-pixel text-[11px] text-emerald-300 mb-1.5">
-                  CÁCH 1: TẢI FILE GAME TRỰC TIẾP VỀ MÁY (KHÔNG CẦN QUA GITHUB)
-                </div>
-                <p className="text-slate-300 leading-relaxed mb-3">
-                  Mình đã đóng gói toàn bộ game thành <strong>1 file độc lập duy nhất</strong> và cấu hình sẵn <strong>Link Web App (PWA)</strong>. Bạn có thể tải thẳng file về máy hoặc mở link trên điện thoại:
-                </p>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="p-2 bg-white rounded-xl border-2 border-emerald-400 shrink-0 shadow-lg">
+                    <img
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=4&data=https%3A%2F%2Fais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app"
+                      alt="QR Code"
+                      className="w-32 h-32 sm:w-36 sm:h-36 block"
+                    />
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
-                  <a
-                    href="./Obsidian-Soul-Knights-Mobile.html"
-                    download="Obsidian-Soul-Knights-Mobile.html"
-                    onClick={() => sound.playChing()}
-                    className="btn-3d btn-3d-emerald py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 text-center no-underline cursor-pointer"
-                  >
-                    <PhoneDownloadIcon className="w-4 h-4 shrink-0" />
-                    <span>TẢI FILE GAME OFFLINE (.HTML)</span>
-                  </a>
+                  <div className="flex-1 space-y-2 text-left">
+                    <p className="text-slate-200 leading-relaxed">
+                      Scan QR code with your phone camera to open & install
+                      Obsidian Soul Knights directly on Android / iOS!
+                    </p>
 
-                  {isInstallable ? (
-                    <button
-                      onClick={async () => {
-                        sound.playChing();
-                        await install();
-                      }}
-                      className="btn-3d btn-3d-amber py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <PhoneDownloadIcon className="w-4 h-4 shrink-0" />
-                      <span>CÀI APP LÊN MÀN HÌNH CHÍNH</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        const shareUrl =
-                          'https://ais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app';
-                        navigator.clipboard?.writeText(shareUrl);
-                        sound.playChing();
-                        setCopiedUrl(true);
-                        setTimeout(() => setCopiedUrl(false), 2500);
-                      }}
-                      className="btn-3d btn-3d-cyan py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <span>
-                        {copiedUrl
-                          ? '✓ ĐÃ COPY LINK ĐIỆN THOẠI!'
-                          : 'COPY LINK CHƠI TRÊN ĐT'}
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
-                  <div>
-                    🔗 <strong>Link mở trực tiếp trên điện thoại:</strong>{' '}
-                    <span className="text-sky-300 select-all break-all">
+                    <div className="p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-sky-300 select-all break-all">
                       https://ais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app
-                    </span>
-                  </div>
-                  <div className="text-slate-400 mt-1">
-                    • <strong>Android (Chrome)</strong>: Mở link trên → bấm menu ⋮ → chọn <strong>Cài đặt ứng dụng (Install App)</strong>.
-                    <br />• <strong>iPhone (Safari)</strong>: Mở link trên → bấm <strong>Chia sẻ (Share)</strong> → chọn <strong>Thêm vào MH chính</strong>.
-                  </div>
-                </div>
-              </div>
+                    </div>
 
-              {/* CÁCH 2: ĐẨY LÊN GITHUB KHÔNG BỊ LỖI WORKFLOW SCOPE */}
-              <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-amber-500/50">
-                <div className="font-pixel text-[11px] text-amber-300 mb-1.5">
-                  CÁCH 2: ĐẨY LÊN GITHUB PAGES (ĐÃ SỬA LỖI TỪ CHỐI QUYỀN)
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          const shareUrl =
+                            'https://ais-pre-rho7hypuzpvteryx5oqzoj-996234967462.asia-east1.run.app';
+                          navigator.clipboard?.writeText(shareUrl);
+                          sound.playChing();
+                          setCopiedUrl(true);
+                          setTimeout(() => setCopiedUrl(false), 2500);
+                        }}
+                        className="btn-3d btn-3d-cyan py-2 px-3.5 rounded-xl font-pixel text-[10px] cursor-pointer"
+                      >
+                        {copiedUrl ? '✓ COPIED!' : 'COPY URL'}
+                      </button>
+
+                      {isInstallable && (
+                        <button
+                          onClick={async () => {
+                            sound.playChing();
+                            await install();
+                          }}
+                          className="btn-3d btn-3d-emerald py-2 px-3.5 rounded-xl font-pixel text-[10px] cursor-pointer"
+                        >
+                          INSTALL PWA APP
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-slate-300 leading-relaxed">
-                  <strong>Nguyên nhân lỗi vừa rồi:</strong> GitHub chặn ứng dụng bên thứ 3 đẩy thư mục <code>.github/workflows</code>. Mình đã <strong>xóa bỏ <code>.github/workflows</code></strong> và <strong>đóng gói sẵn bản Build hoàn chỉnh vào thư mục <code>/docs</code></strong> để bạn đẩy lên GitHub thành công 100%!
-                </p>
-                <ol className="list-decimal list-inside space-y-1.5 text-slate-200 mt-2">
-                  <li>
-                    Bấm lại nút <strong>GitHub (Save / Export to GitHub)</strong> ở góc trên bên phải AI Studio (bây giờ sẽ đẩy lên mượt mà, không còn báo lỗi).
-                  </li>
-                  <li>
-                    Trên GitHub, vào <strong>Settings → Pages</strong> của repository.
-                  </li>
-                  <li>
-                    Ở mục <strong>Build and deployment (Source)</strong>, giữ nguyên <strong>Deploy from a branch</strong>.
-                  </li>
-                  <li>
-                    Ở mục <strong>Branch</strong>, chọn nhánh <strong><code>main</code></strong>, đổi thư mục từ <code>/ (root)</code> sang <strong><code>/docs</code></strong> rồi bấm <strong>Save</strong>. Game sẽ chạy ngay lập tức mà không cần đợi build!
-                  </li>
-                </ol>
               </div>
             </div>
           </div>
@@ -2268,13 +3096,13 @@ export default function App() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-display font-bold text-slate-100 truncate">
-                    {profile.playerName}
+                    {profile.playerName} · {localizedRace.name}
                   </div>
                   <div
                     className="text-[9px] font-mono-tabular font-bold uppercase"
                     style={{ color: DIFFICULTIES[hud.difficulty].accent }}
                   >
-                    {DIFFICULTIES[hud.difficulty].name}
+                    {t.difficulties[hud.difficulty].name}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] font-mono-tabular text-sky-300 font-bold">
@@ -2371,10 +3199,10 @@ export default function App() {
               {hud.inLivingRoom && !hud.promptText && (
                 <div className="bg-[#090b10]/90 border border-slate-800 rounded-xl px-3.5 py-1.5 text-center">
                   <div className="text-xs font-pixel text-amber-400">
-                    PHÒNG CHỜ LIVING ROOM
+                    {t.livingRoomBanner}
                   </div>
                   <div className="text-[11px] font-mono-tabular text-slate-300">
-                    Đổi Tướng & Pet · Mở Rương Vũ Khí · Đi Lên Cổng Bắc Để Vào 1-1
+                    {t.livingRoomSub}
                   </div>
                 </div>
               )}
@@ -2420,7 +3248,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Top-Right: Soul Knight Grid Room Minimap + Mute/Pause */}
+            {/* Top-Right: Soul Knight Grid Room Minimap + Settings/Pause */}
             <div className="pointer-events-auto flex items-start gap-2">
               {!hud.inLivingRoom && (
                 <div className="bg-[#090b10]/92 border border-slate-800 rounded-xl p-2 shadow-lg">
@@ -2493,7 +3321,7 @@ export default function App() {
                     onClick={handleStartDungeonDirect}
                     className="btn-3d btn-3d-amber min-h-[42px] px-3 rounded-xl font-pixel text-[10px] cursor-pointer whitespace-nowrap shrink-0"
                   >
-                    VÀO 1-1 →
+                    1-1 →
                   </button>
                 )}
                 <button
@@ -2574,10 +3402,13 @@ export default function App() {
               >
                 <div className="text-left">
                   <div
-                    className="text-xs font-mono-tabular font-bold leading-tight whitespace-nowrap"
+                    className="text-xs font-mono-tabular font-bold leading-tight whitespace-nowrap flex items-center gap-1"
                     style={{ color: hud.activeWeapon.rarityColor }}
                   >
-                    {hud.activeWeapon.name}
+                    <span>{t.weapons[hud.activeWeapon.id]?.name || hud.activeWeapon.name}</span>
+                    {hud.activeWeapon.canDeflect && (
+                      <span className="text-[9px] text-amber-300">⚡</span>
+                    )}
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-400">
                     DMG {hud.activeWeapon.damage} ·{' '}
@@ -2585,7 +3416,7 @@ export default function App() {
                       {hud.activeWeapon.manaCost} MP
                     </span>
                     {hud.secondaryWeapon
-                      ? ` · Phụ: ${hud.secondaryWeapon.name.split(' ')[0]}`
+                      ? ` · ${t.secondaryLabel}: ${(t.weapons[hud.secondaryWeapon.id]?.name || hud.secondaryWeapon.name).split(' ')[0]}`
                       : ''}
                   </div>
                 </div>
@@ -2637,7 +3468,7 @@ export default function App() {
                   )}
                   <SkillStarIcon className="w-5 h-5 relative z-10" />
                   <span className="text-[10px] font-mono-tabular text-amber-300 font-bold mt-0.5 relative z-10 whitespace-nowrap shrink-0">
-                    Skill
+                    {t.skillLabel}
                   </span>
                 </button>
 
@@ -2664,7 +3495,7 @@ export default function App() {
                   )}
                   <BootPixelIcon className="w-5 h-5 relative z-10" />
                   <span className="text-[10px] font-mono-tabular text-sky-300 font-bold mt-0.5 relative z-10 whitespace-nowrap shrink-0">
-                    Dash
+                    {t.dashLabel}
                   </span>
                 </button>
 
@@ -2690,7 +3521,9 @@ export default function App() {
                 >
                   <SwordPixelIcon className="w-6 h-6" />
                   <span className="text-[11px] font-mono-tabular font-extrabold mt-0.5 whitespace-nowrap shrink-0">
-                    {hud.activeWeapon.type === 'melee' ? 'Chém' : 'Bắn'}
+                    {hud.activeWeapon.type === 'melee'
+                      ? t.meleeStrike
+                      : t.rangedFire}
                   </span>
                 </button>
               </div>
@@ -2707,10 +3540,10 @@ export default function App() {
           <div className="animate-modal-pop w-full max-w-xl bg-[#090b10] border-2 border-amber-500/70 rounded-2xl p-6 shadow-2xl">
             <div className="text-center mb-5">
               <div className="text-xs font-pixel text-amber-400 tracking-widest mb-1">
-                THĂNG CẤP! · LEVEL {hud.level}
+                {t.levelUpTitle} · LEVEL {hud.level}
               </div>
               <h2 className="font-display font-bold text-2xl text-slate-100">
-                Chọn 1 Kỹ Năng Thần Lực (Buff)
+                {t.chooseBoonTitle}
               </h2>
             </div>
 
@@ -2736,7 +3569,7 @@ export default function App() {
                     </p>
                   </div>
                   <div className="mt-4 pt-2 border-t border-slate-800 text-xs font-pixel text-amber-300">
-                    CHỌN BUFF →
+                    {t.pickBoonBtn}
                   </div>
                 </button>
               ))}
@@ -2752,11 +3585,11 @@ export default function App() {
         <div className="absolute inset-0 bg-[#06080d]/85 flex items-center justify-center p-4">
           <div className="animate-modal-pop w-full max-w-sm bg-[#090b10] border-2 border-slate-700 rounded-2xl p-6 text-center shadow-2xl">
             <h2 className="font-pixel text-lg text-amber-400 mb-1">
-              TẠM DỪNG (PAUSED)
+              {t.pauseTitle}
             </h2>
             <p className="text-xs font-mono-tabular text-slate-400 mb-5">
-              Tầng 1-{hud.floor} · {DIFFICULTIES[hud.difficulty].name} ·{' '}
-              {hud.gold} Vàng · +{hud.soulGemsEarned} 💎
+              1-{hud.floor} · {t.difficulties[hud.difficulty].name} ·{' '}
+              {hud.gold}G · +{hud.soulGemsEarned} 💎
             </p>
 
             <div className="flex flex-col gap-2.5">
@@ -2767,7 +3600,7 @@ export default function App() {
                 }}
                 className="btn-3d btn-3d-amber min-h-[46px] w-full py-2.5 px-4 rounded-xl font-pixel text-xs cursor-pointer"
               >
-                TIẾP TỤC CHIẾN ĐẤU
+                {t.resumeBtn}
               </button>
               <button
                 onClick={() => {
@@ -2776,13 +3609,13 @@ export default function App() {
                 }}
                 className="btn-3d btn-3d-slate min-h-[44px] w-full py-2.5 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                MỞ CÀI ĐẶT (SETTINGS)
+                {t.settingsModalTitle}
               </button>
               <button
                 onClick={handleEnterLivingRoom}
                 className="btn-3d btn-3d-cyan min-h-[44px] w-full py-2.5 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                VỀ PHÒNG CHỜ (LIVING ROOM)
+                {t.backLivingRoomBtn}
               </button>
               <button
                 onClick={() => {
@@ -2791,7 +3624,7 @@ export default function App() {
                 }}
                 className="btn-3d btn-3d-rose min-h-[44px] w-full py-2.5 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                VỀ SẢNH CHÍNH (MAIN LOBBY)
+                {t.backMainLobbyBtn}
               </button>
             </div>
           </div>
@@ -2805,41 +3638,45 @@ export default function App() {
         <div className="absolute inset-0 bg-[#06080d]/90 flex items-center justify-center p-4">
           <div className="animate-modal-pop w-full max-w-md bg-[#090b10] border-2 border-slate-700 rounded-2xl p-6 text-center shadow-2xl">
             <div className="text-xs font-mono-tabular tracking-widest mb-1 text-slate-400">
-              {gameState === 'VICTORY'
-                ? 'ĐÃ ĐOẠT ĐƯỢC ĐÁ MA THUẬT!'
-                : 'GỤC NGÃ TRONG HẦM NGỤC'}
+              {gameState === 'VICTORY' ? t.victorySub : t.defeatSub}
             </div>
             <h2
               className={`font-pixel text-xl sm:text-2xl mb-4 ${
                 gameState === 'VICTORY' ? 'text-amber-400' : 'text-rose-500'
               }`}
             >
-              {gameState === 'VICTORY' ? 'CHIẾN THẮNG!' : 'THẤT BẠI'}
+              {gameState === 'VICTORY' ? t.victoryTitle : t.defeatTitle}
             </h2>
 
             <div className="grid grid-cols-2 gap-2.5 mb-5 text-left bg-[#111726] border border-slate-800/90 rounded-xl p-4 font-mono-tabular">
               <div>
-                <div className="text-[11px] text-slate-400">Tầng Đạt Được</div>
+                <div className="text-[11px] text-slate-400">
+                  {t.floorReachedLabel}
+                </div>
                 <div className="text-base font-bold text-slate-100">
-                  1-{hud.floor} ({DIFFICULTIES[hud.difficulty].name})
+                  1-{hud.floor} ({t.difficulties[hud.difficulty].name})
                 </div>
               </div>
               <div>
-                <div className="text-[11px] text-slate-400">Quái Tiêu Diệt</div>
+                <div className="text-[11px] text-slate-400">
+                  {t.foesSlainLabel}
+                </div>
                 <div className="text-base font-bold text-slate-100">
                   {hud.kills}
                 </div>
               </div>
               <div>
                 <div className="text-[11px] text-slate-400">
-                  Soul Gems Nhận Được
+                  {t.gemsEarnedLabel}
                 </div>
                 <div className="text-base font-bold text-sky-400">
                   +{hud.soulGemsEarned} 💎
                 </div>
               </div>
               <div>
-                <div className="text-[11px] text-slate-400">Tổng Sát Thương</div>
+                <div className="text-[11px] text-slate-400">
+                  {t.totalDamageLabel}
+                </div>
                 <div className="text-base font-bold text-rose-400">
                   {hud.damageDealt}
                 </div>
@@ -2854,7 +3691,7 @@ export default function App() {
                 }}
                 className="btn-3d btn-3d-amber min-h-[46px] flex-1 py-3 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                VỀ SẢNH CHÍNH
+                {t.backMainLobbyBtn}
               </button>
               <button
                 onClick={() => {
@@ -2864,13 +3701,13 @@ export default function App() {
                 }}
                 className="btn-3d btn-3d-purple min-h-[46px] py-3 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                MỞ RƯƠNG 💎
+                {t.gachaChest} 💎
               </button>
               <button
                 onClick={handleStartDungeonDirect}
                 className="btn-3d btn-3d-emerald min-h-[46px] py-3 px-4 rounded-xl font-pixel text-[10px] cursor-pointer"
               >
-                CHƠI LẠI (1-1)
+                {t.playAgainBtn}
               </button>
             </div>
           </div>

@@ -1,11 +1,18 @@
-// Procedural 8-Bit Retro Web Audio API Synthesizer for Soul Knight Landscape Edition
+// Procedural 8-Bit Retro Web Audio API Synthesizer + Chiptune BGM Sequencer
+
+export type BgmTrack = 'title' | 'lobby' | 'dungeon' | 'boss';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
   public muted: boolean = false;
+  public bgmMuted: boolean = false;
+  private currentTrack: BgmTrack = 'title';
+  private bgmTimer: number | null = null;
+  private bgmStep: number = 0;
 
-  private ensureContext(): AudioContext | null {
-    if (this.muted) return null;
+  private ensureContext(forBgm = false): AudioContext | null {
+    if (!forBgm && this.muted) return null;
+    if (forBgm && this.bgmMuted) return null;
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx =
         window.AudioContext ||
@@ -30,6 +37,152 @@ class SoundEngine {
     this.muted = muted;
   }
 
+  public setBgmMuted(bgmMuted: boolean) {
+    this.bgmMuted = bgmMuted;
+    if (bgmMuted) {
+      this.stopBgm();
+    } else {
+      this.startBgm(this.currentTrack);
+    }
+  }
+
+  // ==========================================================================
+  // 8-BIT CHIPTUNE BGM SEQUENCER (Title, Lobby, Dungeon Combat, Boss Theme)
+  // ==========================================================================
+  public startBgm(track: BgmTrack) {
+    this.currentTrack = track;
+    if (this.bgmMuted || typeof window === 'undefined') {
+      this.stopBgm();
+      return;
+    }
+
+    if (this.bgmTimer !== null) {
+      window.clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+
+    const stepMs =
+      track === 'boss'
+        ? 135
+        : track === 'dungeon'
+        ? 155
+        : track === 'title'
+        ? 175
+        : 210;
+
+    // 16-step Chiptune Melodies & Basslines (Hz)
+    const melodies: Record<BgmTrack, number[]> = {
+      title: [
+        440, 0, 523.25, 659.25, 587.33, 0, 523.25, 493.88,
+        440, 523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 392,
+      ],
+      lobby: [
+        523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46,
+        523.25, 659.25, 783.99, 1046.5, 880, 783.99, 659.25, 587.33,
+      ],
+      dungeon: [
+        329.63, 329.63, 392, 440, 493.88, 440, 392, 329.63,
+        293.66, 329.63, 392, 493.88, 523.25, 493.88, 440, 392,
+      ],
+      boss: [
+        440, 466.16, 440, 392, 440, 523.25, 493.88, 440,
+        587.33, 554.37, 523.25, 493.88, 659.25, 587.33, 523.25, 466.16,
+      ],
+    };
+
+    const basslines: Record<BgmTrack, number[]> = {
+      title: [
+        110, 110, 130.81, 130.81, 146.83, 146.83, 130.81, 98,
+        110, 110, 164.81, 164.81, 146.83, 130.81, 110, 98,
+      ],
+      lobby: [
+        130.81, 0, 196, 0, 146.83, 0, 220, 0,
+        130.81, 0, 196, 0, 164.81, 0, 196, 0,
+      ],
+      dungeon: [
+        82.41, 82.41, 110, 82.41, 98, 98, 123.47, 98,
+        73.42, 73.42, 98, 73.42, 87.31, 98, 110, 123.47,
+      ],
+      boss: [
+        110, 110, 116.54, 110, 98, 98, 110, 98,
+        146.83, 146.83, 130.81, 123.47, 116.54, 110, 98, 82.41,
+      ],
+    };
+
+    this.bgmTimer = window.setInterval(() => {
+      if (this.bgmMuted) return;
+      const ctx = this.ensureContext(true);
+      if (!ctx || ctx.state !== 'running') return;
+
+      const now = ctx.currentTime;
+      const idx = this.bgmStep % 16;
+      this.bgmStep++;
+
+      const leadFreq = melodies[this.currentTrack][idx];
+      const bassFreq = basslines[this.currentTrack][idx];
+
+      // 1. Lead Chiptune Channel (Square / Triangle)
+      if (leadFreq > 0) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = this.currentTrack === 'lobby' ? 'triangle' : 'square';
+        osc.frequency.setValueAtTime(leadFreq, now);
+
+        const vol = this.currentTrack === 'lobby' ? 0.032 : 0.026;
+        const dur = (stepMs / 1000) * 0.82;
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + dur + 0.01);
+      }
+
+      // 2. Bassline Channel (Triangle)
+      if (bassFreq > 0) {
+        const bOsc = ctx.createOscillator();
+        const bGain = ctx.createGain();
+        bOsc.type = 'triangle';
+        bOsc.frequency.setValueAtTime(bassFreq, now);
+
+        const dur = (stepMs / 1000) * 0.9;
+        bGain.gain.setValueAtTime(0.042, now);
+        bGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        bOsc.connect(bGain);
+        bGain.connect(ctx.destination);
+        bOsc.start(now);
+        bOsc.stop(now + dur + 0.01);
+      }
+
+      // 3. Percussion Hi-Hat / Kick on Dungeon & Boss tracks
+      if (
+        (this.currentTrack === 'dungeon' || this.currentTrack === 'boss') &&
+        idx % 2 === 0
+      ) {
+        const pOsc = ctx.createOscillator();
+        const pGain = ctx.createGain();
+        pOsc.type = 'square';
+        pOsc.frequency.setValueAtTime(idx % 4 === 0 ? 95 : 880, now);
+        pOsc.frequency.exponentialRampToValueAtTime(35, now + 0.03);
+        pGain.gain.setValueAtTime(0.018, now);
+        pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.032);
+        pOsc.connect(pGain);
+        pGain.connect(ctx.destination);
+        pOsc.start(now);
+        pOsc.stop(now + 0.035);
+      }
+    }, stepMs);
+  }
+
+  public stopBgm() {
+    if (this.bgmTimer !== null && typeof window !== 'undefined') {
+      window.clearInterval(this.bgmTimer);
+      this.bgmTimer = null;
+    }
+  }
+
   // Tiếng "Click" cơ học đã tai khi bấm nút UI / Đổi Skin
   public playUiClick(highPitch = false) {
     const ctx = this.ensureContext();
@@ -40,7 +193,10 @@ class SoundEngine {
     const gain = ctx.createGain();
     osc.type = 'square';
     osc.frequency.setValueAtTime(highPitch ? 820 : 620, now);
-    osc.frequency.exponentialRampToValueAtTime(highPitch ? 1240 : 280, now + 0.038);
+    osc.frequency.exponentialRampToValueAtTime(
+      highPitch ? 1240 : 280,
+      now + 0.038
+    );
 
     gain.gain.setValueAtTime(0.11, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.042);
@@ -49,6 +205,33 @@ class SoundEngine {
     gain.connect(ctx.destination);
     osc.start(now);
     osc.stop(now + 0.045);
+  }
+
+  // Tiếng "CLANG!" kim loại đanh gọn khi chém phản đòn đạn (Soul Knight Bullet Deflect!)
+  public playDeflectClang() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const freqs = [1318.51, 1975.53, 2637.02];
+    freqs.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx === 0 ? 'square' : 'triangle';
+      osc.frequency.setValueAtTime(f, now + idx * 0.015);
+      osc.frequency.exponentialRampToValueAtTime(
+        f * 1.15,
+        now + idx * 0.015 + 0.14
+      );
+
+      gain.gain.setValueAtTime(0.14, now + idx * 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.015 + 0.15);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.015);
+      osc.stop(now + idx * 0.015 + 0.16);
+    });
   }
 
   // Tiếng "Ching!" rực rỡ khi mở khóa Tướng / Skin / Nhận Kim Cương
@@ -135,9 +318,9 @@ class SoundEngine {
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(heavy ? 680 : 1120, now);
+    filter.frequency.setValueAtTime(heavy ? 680 : 1180, now);
     filter.frequency.exponentialRampToValueAtTime(
-      heavy ? 190 : 310,
+      heavy ? 190 : 340,
       now + dur
     );
     filter.Q.value = 2.0;
@@ -187,12 +370,17 @@ class SoundEngine {
       return;
     }
 
-    // Pistol / Shotgun punch
     osc.type = 'square';
     osc.frequency.setValueAtTime(kind === 'shotgun' ? 240 : 420, now);
-    osc.frequency.exponentialRampToValueAtTime(55, now + (kind === 'shotgun' ? 0.14 : 0.08));
+    osc.frequency.exponentialRampToValueAtTime(
+      55,
+      now + (kind === 'shotgun' ? 0.14 : 0.08)
+    );
     gain.gain.setValueAtTime(kind === 'shotgun' ? 0.22 : 0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + (kind === 'shotgun' ? 0.14 : 0.08));
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      now + (kind === 'shotgun' ? 0.14 : 0.08)
+    );
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
@@ -260,7 +448,6 @@ class SoundEngine {
     osc.stop(now + duration);
   }
 
-  // Tiếng nhận sát thương "bíp trầm" 8-bit
   public playPlayerHurt() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -282,7 +469,6 @@ class SoundEngine {
     osc.stop(now + 0.23);
   }
 
-  // Tiếng nhặt xu / Mana / EXP "tít tít" 8-bit
   public playExpCoin() {
     const ctx = this.ensureContext();
     if (!ctx) return;

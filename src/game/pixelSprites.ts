@@ -1,4 +1,11 @@
-import { EnemyType, HeroClassId, PetId, SkinTier, WeaponId } from './types';
+import {
+  EnemyType,
+  HeroClassId,
+  PetId,
+  RaceCustomization,
+  SkinTier,
+  WeaponId,
+} from './types';
 
 function createPixelSprite(
   grid: string[],
@@ -62,7 +69,7 @@ export function getSpriteBank(): SpriteBank {
   if (cachedBank) return cachedBank;
 
   // ==========================================================================
-  // 1. VANGUARD KNIGHT (3 Skin Palettes: Default, Rare Cobalt, Legendary Seraph)
+  // 1. VANGUARD KNIGHT
   // ==========================================================================
   const knightPalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -136,7 +143,7 @@ export function getSpriteBank(): SpriteBank {
   ];
 
   // ==========================================================================
-  // 2. ASH PYROMANCER (3 Skin Palettes: Default, Rare Frostfire, Legendary Astral)
+  // 2. ASH PYROMANCER
   // ==========================================================================
   const pyroPalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -207,7 +214,7 @@ export function getSpriteBank(): SpriteBank {
   ];
 
   // ==========================================================================
-  // 3. SHADOW ROGUE (3 Skin Palettes: Default, Rare Bloodmoon, Legendary Cyber)
+  // 3. SHADOW ROGUE
   // ==========================================================================
   const roguePalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -272,7 +279,7 @@ export function getSpriteBank(): SpriteBank {
   ];
 
   // ==========================================================================
-  // 4. CYBER ALCHEMIST (3 Skin Palettes)
+  // 4. CYBER ALCHEMIST
   // ==========================================================================
   const alchemistPalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -337,7 +344,7 @@ export function getSpriteBank(): SpriteBank {
   ];
 
   // ==========================================================================
-  // 5. VOID NECROMANCER (5th Class - Unlockable! 3 Skin Palettes)
+  // 5. VOID NECROMANCER
   // ==========================================================================
   const necroHeroPalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -403,7 +410,7 @@ export function getSpriteBank(): SpriteBank {
   ];
 
   // ==========================================================================
-  // 6. BERSERKER TITAN (6th Class - Unlockable! 3 Skin Palettes)
+  // 6. BERSERKER TITAN
   // ==========================================================================
   const berserkerPalettes: Record<SkinTier, Record<string, string>> = {
     default: {
@@ -786,7 +793,9 @@ export function getSpriteBank(): SpriteBank {
     '...oooooooo...',
   ];
 
-  // WEAPON SPRITES
+  // ==========================================================================
+  // 16 WEAPON SPRITES
+  // ==========================================================================
   const weaponPalette: Record<string, string> = {
     o: '#090b10',
     s: '#e2e8f0',
@@ -797,6 +806,7 @@ export function getSpriteBank(): SpriteBank {
     b: '#38bdf8',
     r: '#f43f5e',
     e: '#10b981',
+    p: '#a855f7',
     w: '#92400e',
   };
 
@@ -819,6 +829,78 @@ export function getSpriteBank(): SpriteBank {
     'ogooeemo..',
     '.ogoomo...',
     'owgo......',
+  ];
+
+  const bloodKatanaGrid = [
+    '...........oo',
+    '..........oro',
+    '.........orso',
+    '........orsmo',
+    '.......orsmo.',
+    '..o...orsmo..',
+    '.ogo.orsmo...',
+    '..ogorsmo....',
+    '.odoogoo.....',
+    'odo..........',
+  ];
+
+  const voidScytheGrid = [
+    '......ooooooo',
+    '.....opppppbo',
+    '....oppbbppoo',
+    '...oppo..ooo.',
+    '....oo..ogo..',
+    '.......owo...',
+    '......owo....',
+    '.....owo.....',
+    '....owo......',
+  ];
+
+  const infernoGreataxeGrid = [
+    '.....oooo....',
+    '....oryyro...',
+    '...orrrrrro..',
+    '....ooggro...',
+    '...owgooo....',
+    '..owo.orrrro.',
+    '.owo...oryro.',
+    'owo.....ooo..',
+  ];
+
+  const thunderWarhammerGrid = [
+    '......oooooo.',
+    '.....obyyyybo',
+    '....obbbbbbbo',
+    '....obyyyybbo',
+    '.....ooggboo.',
+    '....owgo.....',
+    '...owo.......',
+    '..owo........',
+    '.owo.........',
+  ];
+
+  const dragonLanceGrid = [
+    '..........ooo',
+    '.........oryo',
+    '........oryro',
+    '.......oggro.',
+    '......owgo...',
+    '.....owo.....',
+    '....owo......',
+    '...owo.......',
+    '..owo........',
+  ];
+
+  const excaliburGrid = [
+    '.........oooo',
+    '........oyyyo',
+    '.......oyyggo',
+    '..o...oyyggo.',
+    '.ogo.oyyggo..',
+    '..ogoyyggo...',
+    '..ooggggo....',
+    '.orgo.oo.....',
+    'oro..........',
   ];
 
   const pistolGrid = [
@@ -848,6 +930,34 @@ export function getSpriteBank(): SpriteBank {
     '..ooo.......',
   ];
 
+  const gatlingMinigunGrid = [
+    '..ooooooooooo',
+    '.omssssssssyo',
+    '.odmmmmmmmmro',
+    '.omssssssssyo',
+    '.odddggggddoo',
+    '..oddo..odo..',
+    '..ooo...ooo..',
+  ];
+
+  const sniperRailgunGrid = [
+    '.ooooooooooooo',
+    'osssbbbbbbbbyo',
+    'odddyyyyyyyybo',
+    '.odddmmmmddoo.',
+    '..oddo..oo....',
+    '..ooo.........',
+  ];
+
+  const frostLaserGrid = [
+    '..ooooooooooo',
+    '.ossbbbbbbbbo',
+    '.ossbbwwwwbbo',
+    '.odddbbbbdddo',
+    '..oddo..oooo.',
+    '..ooo........',
+  ];
+
   const staffGrid = [
     '........ooo.',
     '.......obyyo',
@@ -867,27 +977,6 @@ export function getSpriteBank(): SpriteBank {
     '..ow...ro...',
     '...ow.ro....',
     '....ooo.....',
-  ];
-
-  const excaliburGrid = [
-    '.........oooo',
-    '........oyyyo',
-    '.......oyyggo',
-    '..o...oyyggo.',
-    '.ogo.oyyggo..',
-    '..ogoyyggo...',
-    '..ooggggo....',
-    '.orgo.oo.....',
-    'oro..........',
-  ];
-
-  const frostLaserGrid = [
-    '..ooooooooooo',
-    '.ossbbbbbbbbo',
-    '.ossbbwwwwbbo',
-    '.odddbbbbdddo',
-    '..oddo..oooo.',
-    '..ooo........',
   ];
 
   // INTERACTABLES & DESTRUCTIBLE PROPS
@@ -1109,7 +1198,11 @@ export function getSpriteBank(): SpriteBank {
     pyromancer: buildSkinSet(pyroFrame0, pyroFrame1, pyroPalettes),
     rogue: buildSkinSet(rogueFrame0, rogueFrame1, roguePalettes),
     alchemist: buildSkinSet(alchemistFrame0, alchemistFrame1, alchemistPalettes),
-    necromancer: buildSkinSet(necroHeroFrame0, necroHeroFrame1, necroHeroPalettes),
+    necromancer: buildSkinSet(
+      necroHeroFrame0,
+      necroHeroFrame1,
+      necroHeroPalettes
+    ),
     berserker: buildSkinSet(berserkerFrame0, berserkerFrame1, berserkerPalettes),
   };
 
@@ -1137,16 +1230,46 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(rogueFrame1, roguePalettes.default, 3, '#05070b'),
       ],
       alchemist: [
-        createPixelSprite(alchemistFrame0, alchemistPalettes.default, 3, '#05070b'),
-        createPixelSprite(alchemistFrame1, alchemistPalettes.default, 3, '#05070b'),
+        createPixelSprite(
+          alchemistFrame0,
+          alchemistPalettes.default,
+          3,
+          '#05070b'
+        ),
+        createPixelSprite(
+          alchemistFrame1,
+          alchemistPalettes.default,
+          3,
+          '#05070b'
+        ),
       ],
       necromancer: [
-        createPixelSprite(necroHeroFrame0, necroHeroPalettes.default, 3, '#05070b'),
-        createPixelSprite(necroHeroFrame1, necroHeroPalettes.default, 3, '#05070b'),
+        createPixelSprite(
+          necroHeroFrame0,
+          necroHeroPalettes.default,
+          3,
+          '#05070b'
+        ),
+        createPixelSprite(
+          necroHeroFrame1,
+          necroHeroPalettes.default,
+          3,
+          '#05070b'
+        ),
       ],
       berserker: [
-        createPixelSprite(berserkerFrame0, berserkerPalettes.default, 3, '#05070b'),
-        createPixelSprite(berserkerFrame1, berserkerPalettes.default, 3, '#05070b'),
+        createPixelSprite(
+          berserkerFrame0,
+          berserkerPalettes.default,
+          3,
+          '#05070b'
+        ),
+        createPixelSprite(
+          berserkerFrame1,
+          berserkerPalettes.default,
+          3,
+          '#05070b'
+        ),
       ],
     },
     heroesGhost: {
@@ -1163,16 +1286,46 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(rogueFrame1, roguePalettes.default, 3, '#34d399'),
       ],
       alchemist: [
-        createPixelSprite(alchemistFrame0, alchemistPalettes.default, 3, '#a3e635'),
-        createPixelSprite(alchemistFrame1, alchemistPalettes.default, 3, '#a3e635'),
+        createPixelSprite(
+          alchemistFrame0,
+          alchemistPalettes.default,
+          3,
+          '#a3e635'
+        ),
+        createPixelSprite(
+          alchemistFrame1,
+          alchemistPalettes.default,
+          3,
+          '#a3e635'
+        ),
       ],
       necromancer: [
-        createPixelSprite(necroHeroFrame0, necroHeroPalettes.default, 3, '#c084fc'),
-        createPixelSprite(necroHeroFrame1, necroHeroPalettes.default, 3, '#c084fc'),
+        createPixelSprite(
+          necroHeroFrame0,
+          necroHeroPalettes.default,
+          3,
+          '#c084fc'
+        ),
+        createPixelSprite(
+          necroHeroFrame1,
+          necroHeroPalettes.default,
+          3,
+          '#c084fc'
+        ),
       ],
       berserker: [
-        createPixelSprite(berserkerFrame0, berserkerPalettes.default, 3, '#ef4444'),
-        createPixelSprite(berserkerFrame1, berserkerPalettes.default, 3, '#ef4444'),
+        createPixelSprite(
+          berserkerFrame0,
+          berserkerPalettes.default,
+          3,
+          '#ef4444'
+        ),
+        createPixelSprite(
+          berserkerFrame1,
+          berserkerPalettes.default,
+          3,
+          '#ef4444'
+        ),
       ],
     },
     pets: {
@@ -1244,13 +1397,32 @@ export function getSpriteBank(): SpriteBank {
     weapons: {
       broadsword: createPixelSprite(broadswordGrid, weaponPalette, 2.5),
       twin_daggers: createPixelSprite(daggersGrid, weaponPalette, 2.5),
+      blood_katana: createPixelSprite(bloodKatanaGrid, weaponPalette, 2.5),
+      void_scythe: createPixelSprite(voidScytheGrid, weaponPalette, 2.5),
+      inferno_greataxe: createPixelSprite(
+        infernoGreataxeGrid,
+        weaponPalette,
+        2.5
+      ),
+      thunder_warhammer: createPixelSprite(
+        thunderWarhammerGrid,
+        weaponPalette,
+        2.5
+      ),
+      dragon_lance: createPixelSprite(dragonLanceGrid, weaponPalette, 2.5),
+      excalibur: createPixelSprite(excaliburGrid, weaponPalette, 2.5),
       pioneer_pistol: createPixelSprite(pistolGrid, weaponPalette, 2.5),
       splitter_shotgun: createPixelSprite(shotgunGrid, weaponPalette, 2.5),
       plasma_rifle: createPixelSprite(plasmaGrid, weaponPalette, 2.5),
+      gatling_minigun: createPixelSprite(
+        gatlingMinigunGrid,
+        weaponPalette,
+        2.5
+      ),
+      sniper_railgun: createPixelSprite(sniperRailgunGrid, weaponPalette, 2.5),
+      frost_laser: createPixelSprite(frostLaserGrid, weaponPalette, 2.5),
       thunder_staff: createPixelSprite(staffGrid, weaponPalette, 2.5),
       inferno_bow: createPixelSprite(bowGrid, weaponPalette, 2.5),
-      excalibur: createPixelSprite(excaliburGrid, weaponPalette, 2.5),
-      frost_laser: createPixelSprite(frostLaserGrid, weaponPalette, 2.5),
     },
     chestClosed: createPixelSprite(chestClosedGrid, chestPalette, 3),
     chestOpen: createPixelSprite(chestOpenGrid, chestPalette, 3),
@@ -1266,4 +1438,136 @@ export function getSpriteBank(): SpriteBank {
   };
 
   return cachedBank;
+}
+
+// ============================================================================
+// MODULAR RACIAL & COSMETIC HERO RENDERER
+// Renders Animated Back Wings + Base Class/Skin + Custom Skin/Ears/Eyes/Horns
+// ============================================================================
+export function drawCustomizedHero(
+  ctx: CanvasRenderingContext2D,
+  bank: SpriteBank,
+  heroClass: HeroClassId,
+  skinTier: SkinTier,
+  frameIdx: number,
+  raceCustom?: RaceCustomization,
+  animTime: number = 0,
+  isLocked: boolean = false
+) {
+  const safeFrame = Math.abs(Math.floor(frameIdx)) % 2;
+  const sprite =
+    (isLocked
+      ? bank.heroesSilhouette[heroClass]?.[safeFrame]
+      : bank.heroesSkins[heroClass]?.[skinTier]?.[safeFrame] ||
+        bank.heroes[heroClass]?.[safeFrame]) || bank.heroes.knight[0];
+
+  const sw = sprite.width; // 48px
+  const sh = sprite.height; // 48px
+  const ox = Math.round(-sw / 2);
+  const oy = Math.round(-sh + 6);
+
+  // 1. Draw Animated Back Wings (behind hero body)
+  if (!isLocked && raceCustom && raceCustom.wingStyle !== 'none') {
+    const flapY = Math.round(Math.sin(animTime * 8) * 3);
+    ctx.save();
+    if (raceCustom.wingStyle === 'angel_wings') {
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(ox - 9, oy + 15 + flapY, 12, 6);
+      ctx.fillRect(ox + sw - 3, oy + 15 + flapY, 12, 6);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(ox - 12, oy + 18 + flapY, 14, 9);
+      ctx.fillRect(ox + sw - 2, oy + 18 + flapY, 14, 9);
+      ctx.fillStyle = '#bae6fd';
+      ctx.fillRect(ox - 8, oy + 26 + flapY, 9, 5);
+      ctx.fillRect(ox + sw - 1, oy + 26 + flapY, 9, 5);
+    } else if (raceCustom.wingStyle === 'bat_wings') {
+      ctx.fillStyle = '#090b10';
+      ctx.fillRect(ox - 13, oy + 13 + flapY, 15, 14);
+      ctx.fillRect(ox + sw - 2, oy + 13 + flapY, 15, 14);
+      ctx.fillStyle = '#be123c';
+      ctx.fillRect(ox - 11, oy + 15 + flapY, 12, 10);
+      ctx.fillRect(ox + sw - 1, oy + 15 + flapY, 12, 10);
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(ox - 13, oy + 12 + flapY, 5, 4);
+      ctx.fillRect(ox + sw + 8, oy + 12 + flapY, 5, 4);
+    } else if (raceCustom.wingStyle === 'cyber_wings') {
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(ox - 12, oy + 14 + flapY, 13, 4);
+      ctx.fillRect(ox + sw - 1, oy + 14 + flapY, 13, 4);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(ox - 15, oy + 19 + flapY, 15, 4);
+      ctx.fillRect(ox + sw, oy + 19 + flapY, 15, 4);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(ox - 10, oy + 24 + flapY, 10, 3);
+      ctx.fillRect(ox + sw, oy + 24 + flapY, 10, 3);
+    }
+    ctx.restore();
+  }
+
+  // 2. Draw Base Hero Sprite
+  ctx.drawImage(sprite, ox, oy);
+
+  if (isLocked || !raceCustom) return;
+
+  // 3. Draw Custom Racial Skin Tone, Ears, Glowing Eyes & Horns
+  ctx.save();
+  // Custom Skin Tone & Glowing Eyes on Face Visor row (y: 12..18)
+  ctx.fillStyle = raceCustom.skinColor;
+  ctx.fillRect(ox + 15, oy + 13, 18, 6);
+
+  // Glowing Eyes
+  ctx.fillStyle = '#090b10';
+  ctx.fillRect(ox + 16, oy + 14, 5, 4);
+  ctx.fillRect(ox + 27, oy + 14, 5, 4);
+  ctx.fillStyle = raceCustom.eyeColor;
+  ctx.fillRect(ox + 17, oy + 14, 4, 3);
+  ctx.fillRect(ox + 27, oy + 14, 4, 3);
+
+  // Ears (Elf Long Ears / Beast Ears)
+  if (raceCustom.earStyle === 'elf_long') {
+    ctx.fillStyle = '#090b10';
+    ctx.fillRect(ox + 5, oy + 11, 7, 6);
+    ctx.fillRect(ox + sw - 12, oy + 11, 7, 6);
+    ctx.fillStyle = raceCustom.skinColor;
+    ctx.fillRect(ox + 6, oy + 12, 6, 4);
+    ctx.fillRect(ox + sw - 12, oy + 12, 6, 4);
+  } else if (raceCustom.earStyle === 'beast_ears') {
+    ctx.fillStyle = '#090b10';
+    ctx.fillRect(ox + 9, oy + 3, 6, 7);
+    ctx.fillRect(ox + sw - 15, oy + 3, 6, 7);
+    ctx.fillStyle = raceCustom.skinColor;
+    ctx.fillRect(ox + 10, oy + 4, 4, 5);
+    ctx.fillRect(ox + sw - 14, oy + 4, 4, 5);
+  }
+
+  // Horns / Crown Spikes on Head Top
+  if (raceCustom.hornStyle === 'demon_horns') {
+    ctx.fillStyle = '#090b10';
+    ctx.fillRect(ox + 8, oy - 5, 6, 9);
+    ctx.fillRect(ox + sw - 14, oy - 5, 6, 9);
+    ctx.fillStyle = '#e11d48';
+    ctx.fillRect(ox + 9, oy - 4, 4, 7);
+    ctx.fillRect(ox + sw - 13, oy - 4, 4, 7);
+    ctx.fillStyle = '#fde047';
+    ctx.fillRect(ox + 8, oy - 6, 3, 3);
+    ctx.fillRect(ox + sw - 11, oy - 6, 3, 3);
+  } else if (raceCustom.hornStyle === 'dragon_antlers') {
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(ox + 7, oy - 7, 4, 10);
+    ctx.fillRect(ox + 4, oy - 5, 4, 4);
+    ctx.fillRect(ox + sw - 11, oy - 7, 4, 10);
+    ctx.fillRect(ox + sw - 8, oy - 5, 4, 4);
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(ox + 7, oy - 8, 3, 4);
+    ctx.fillRect(ox + sw - 10, oy - 8, 3, 4);
+  } else if (raceCustom.hornStyle === 'crown_spikes') {
+    ctx.fillStyle = '#fde047';
+    ctx.fillRect(ox + 13, oy - 4, 22, 4);
+    ctx.fillRect(ox + 14, oy - 8, 4, 5);
+    ctx.fillRect(ox + 22, oy - 10, 4, 7);
+    ctx.fillRect(ox + 30, oy - 8, 4, 5);
+    ctx.fillStyle = '#f43f5e';
+    ctx.fillRect(ox + 23, oy - 5, 2, 3);
+  }
+  ctx.restore();
 }
