@@ -9,6 +9,7 @@ import {
   ManaPixelIcon,
   ObsidianTitleLockup,
   PausePixelIcon,
+  PhoneDownloadIcon,
   PixelAvatarGraphic,
   PotionPixelIcon,
   QuestScrollIcon,
@@ -27,6 +28,7 @@ import { IsometricGameEngine } from './game/GameEngine';
 import { DIFFICULTIES, HERO_CLASSES, PETS, WEAPONS } from './game/dungeonGen';
 import { getSpriteBank } from './game/pixelSprites';
 import { sound } from './game/sound';
+import { usePWAInstall } from './game/usePWAInstall';
 import {
   AVATAR_LIST,
   DEFAULT_PROFILE,
@@ -250,7 +252,7 @@ function LobbyStageCanvas({
     }));
 
     const renderLoop = (now: number) => {
-      const t = (now - startTime) / 1000;
+      const t = Math.max(0, (now - startTime) / 1000);
       const w = cvs.width;
       const h = cvs.height;
 
@@ -260,8 +262,8 @@ function LobbyStageCanvas({
       const cx = w / 2;
       const cy = h * 0.68;
 
-      const heroCfg = HERO_CLASSES[heroClass];
-      const skinCfg = heroCfg.skins[skinTier];
+      const heroCfg = HERO_CLASSES[heroClass] || HERO_CLASSES.knight;
+      const skinCfg = heroCfg.skins[skinTier] || heroCfg.skins.default;
       const primaryGlow = isLocked
         ? '#64748b'
         : skinCfg.auraColor || heroCfg.accentColor;
@@ -281,7 +283,7 @@ function LobbyStageCanvas({
           2,
           tx,
           ty - 6,
-          36 + flick * 2
+          Math.max(10, 36 + flick * 2)
         );
         grad.addColorStop(0, 'rgba(251, 191, 36, 0.55)');
         grad.addColorStop(0.5, 'rgba(249, 115, 22, 0.22)');
@@ -369,8 +371,9 @@ function LobbyStageCanvas({
       const petX = cx + Math.cos(petAngle) * 52;
       const petY = cy + 8 + Math.sin(petAngle) * 11;
       const petHop = Math.abs(Math.sin(t * 8.5)) * 7;
-      const petFrames = bank.pets[petId];
-      const petSprite = petFrames[Math.floor(t * 6) % 2];
+      const petFrames = bank.pets[petId] || bank.pets.cat;
+      const petFrameIdx = Math.abs(Math.floor(t * 6)) % 2;
+      const petSprite = petFrames[petFrameIdx] || petFrames[0];
       const petFacing = Math.sin(petAngle) >= 0 ? -1 : 1;
 
       // Pet shadow
@@ -379,26 +382,29 @@ function LobbyStageCanvas({
       ctx.ellipse(petX, petY + 4, 14, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.save();
-      ctx.translate(Math.round(petX), Math.round(petY - petHop));
-      ctx.scale(petFacing * 2.2, 2.2);
-      ctx.drawImage(
-        petSprite,
-        Math.round(-petSprite.width / 2),
-        Math.round(-petSprite.height + 4)
-      );
-      ctx.restore();
+      if (petSprite) {
+        ctx.save();
+        ctx.translate(Math.round(petX), Math.round(petY - petHop));
+        ctx.scale(petFacing * 2.2, 2.2);
+        ctx.drawImage(
+          petSprite,
+          Math.round(-petSprite.width / 2),
+          Math.round(-petSprite.height + 4)
+        );
+        ctx.restore();
+      }
 
       // 6. Hero Sprite (Idle Breathing + Periodic Weapon Swing)
-      const frameIdx = Math.floor(t * 3.2) % 2;
+      const frameIdx = Math.abs(Math.floor(t * 3.2)) % 2;
       const breathScaleY = 1 + Math.sin(t * 6.4) * 0.035;
       const breathScaleX = 1 - Math.sin(t * 6.4) * 0.025;
       const heroBob = Math.abs(Math.sin(t * 3.2)) * 3;
 
-      const heroSprite = isLocked
-        ? bank.heroesSilhouette[heroClass][frameIdx]
-        : bank.heroesSkins[heroClass]?.[skinTier]?.[frameIdx] ||
-          bank.heroes[heroClass][frameIdx];
+      const heroSprite =
+        (isLocked
+          ? bank.heroesSilhouette[heroClass]?.[frameIdx]
+          : bank.heroesSkins[heroClass]?.[skinTier]?.[frameIdx] ||
+            bank.heroes[heroClass]?.[frameIdx]) || bank.heroes.knight[0];
 
       // Hero ground shadow
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -406,16 +412,18 @@ function LobbyStageCanvas({
       ctx.ellipse(cx, cy + 4, 26, 10, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const heroScale = 3.25;
-      ctx.save();
-      ctx.translate(Math.round(cx), Math.round(cy - heroBob));
-      ctx.scale(heroScale * breathScaleX, heroScale * breathScaleY);
-      ctx.drawImage(
-        heroSprite,
-        Math.round(-heroSprite.width / 2),
-        Math.round(-heroSprite.height + 5)
-      );
-      ctx.restore();
+      if (heroSprite) {
+        const heroScale = 3.25;
+        ctx.save();
+        ctx.translate(Math.round(cx), Math.round(cy - heroBob));
+        ctx.scale(heroScale * breathScaleX, heroScale * breathScaleY);
+        ctx.drawImage(
+          heroSprite,
+          Math.round(-heroSprite.width / 2),
+          Math.round(-heroSprite.height + 5)
+        );
+        ctx.restore();
+      }
 
       // 7. Equipped Weapon & Periodic / Click Slash Animation
       if (!isLocked) {
@@ -516,9 +524,11 @@ export default function App() {
     useState<DifficultyId>('normal');
 
   const [activeModal, setActiveModal] = useState<
-    'NONE' | 'SHOP' | 'GACHA' | 'QUESTS' | 'AVATAR' | 'SETTINGS'
+    'NONE' | 'SHOP' | 'GACHA' | 'QUESTS' | 'AVATAR' | 'SETTINGS' | 'MOBILE_INSTALL'
   >('NONE');
   const [shopTab, setShopTab] = useState<'ARMORY' | 'UPGRADES'>('ARMORY');
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
 
   // Gacha Chest State
   const [gachaState, setGachaState] = useState<'IDLE' | 'SHAKING' | 'REVEALED'>(
@@ -1072,6 +1082,20 @@ export default function App() {
                 <span>{profile.soulGems}</span>
               </div>
 
+              {/* Mobile App / GitHub Deploy 3D Button */}
+              {!isInstalled && (
+                <button
+                  onClick={() => {
+                    sound.playUiClick(true);
+                    setActiveModal('MOBILE_INSTALL');
+                  }}
+                  className="btn-3d btn-3d-emerald px-3 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <PhoneDownloadIcon className="w-4 h-4" />
+                  <span className="hidden md:inline">TẢI VỀ ĐT / GITHUB</span>
+                </button>
+              )}
+
               {/* Daily Quests Scroll Button */}
               <button
                 onClick={() => {
@@ -1083,7 +1107,7 @@ export default function App() {
                 <QuestScrollIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">NHIỆM VỤ</span>
                 {claimableQuestsCount > 0 && (
-                  <span className=" -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 border-2 border-white text-white font-pixel text-[9px] flex items-center justify-center animate-bounce">
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 border-2 border-white text-white font-pixel text-[9px] flex items-center justify-center animate-bounce">
                     {claimableQuestsCount}
                   </span>
                 )}
@@ -2103,6 +2127,120 @@ export default function App() {
                 >
                   RESET LƯU TRỮ
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 6: GITHUB PAGES & MOBILE PWA INSTALL (Tải Game Về Điện Thoại)
+         ===================================================================== */}
+      {activeModal === 'MOBILE_INSTALL' && (
+        <div className="absolute inset-0 z-30 bg-[#06080d]/92 flex items-center justify-center p-3 sm:p-5">
+          <div className="animate-modal-pop w-full max-w-2xl max-h-[90vh] flex flex-col bg-[#090b10] border-2 border-emerald-400 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <PhoneDownloadIcon className="w-6 h-6" />
+                <h2 className="font-pixel text-xs sm:text-sm text-emerald-400">
+                  CÀI GAME VỀ ĐIỆN THOẠI & TRIỂN KHAI GITHUB
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playUiClick(false);
+                  setActiveModal('NONE');
+                }}
+                className="btn-3d btn-3d-slate px-3 py-1 rounded-lg font-pixel text-[10px] cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs font-mono-tabular">
+              {/* 1. Direct Mobile PWA Install */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border-2 border-emerald-500/50">
+                <div className="font-pixel text-[11px] text-emerald-300 mb-1.5">
+                  1. CÀI ĐẶT TRỰC TIẾP LÊN MÀN HÌNH CHÍNH (PWA OFFLINE)
+                </div>
+                <p className="text-slate-300 leading-relaxed mb-3">
+                  Game đã tích hợp chuẩn <strong>Progressive Web App (PWA)</strong>. Khi mở trên điện thoại, bạn có thể cài đặt thành ứng dụng full-screen (chơi không cần mạng):
+                </p>
+
+                {isInstallable ? (
+                  <button
+                    onClick={async () => {
+                      sound.playChing();
+                      await install();
+                    }}
+                    className="btn-3d btn-3d-emerald w-full py-3 px-4 rounded-xl font-pixel text-xs flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <PhoneDownloadIcon className="w-5 h-5" />
+                    <span>BẤM ĐỂ CÀI ĐẶT GAME VỀ MÁY NGAY</span>
+                  </button>
+                ) : isIOS ? (
+                  <div className="p-3 rounded-lg bg-slate-950 border border-sky-500/40 text-sky-200">
+                    <strong>Hướng dẫn cho iPhone / iPad (Safari):</strong>
+                    <br />
+                    1. Bấm nút <strong>Chia sẻ (Share)</strong> ở thanh dưới cùng trình duyệt Safari.
+                    <br />
+                    2. Cuộn xuống chọn <strong>Thêm vào MH chính (Add to Home Screen)</strong>.
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={window.location.origin}
+                      className="flex-1 w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sky-300 text-xs"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(window.location.origin);
+                        sound.playChing();
+                        setCopiedUrl(true);
+                        setTimeout(() => setCopiedUrl(false), 2000);
+                      }}
+                      className="btn-3d btn-3d-cyan px-4 py-2 rounded-lg font-pixel text-[10px] shrink-0 cursor-pointer"
+                    >
+                      {copiedUrl ? 'ĐÃ COPY LINK!' : 'COPY LINK MỞ TRÊN ĐT'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. GitHub Export & Automatic GitHub Pages Workflow */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border border-amber-500/40">
+                <div className="font-pixel text-[11px] text-amber-300 mb-1.5">
+                  2. ĐẨY LÊN GITHUB & TỰ ĐỘNG CHẠY GITHUB PAGES
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  Mình đã tạo sẵn file cấu hình <code>.github/workflows/deploy.yml</code> và cấu hình đường dẫn tương đối <code>base: './'</code> trong dự án. Bạn chỉ cần làm 3 bước:
+                </p>
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-200 mt-2">
+                  <li>
+                    Nhìn lên <strong>thanh công cụ góc trên bên phải của AI Studio</strong>, bấm biểu tượng <strong>GitHub (Export to GitHub)</strong> để đẩy code lên tài khoản GitHub của bạn.
+                  </li>
+                  <li>
+                    Mở kho lưu trữ (Repository) vừa tạo trên GitHub, vào mục <strong>Settings → Pages</strong>.
+                  </li>
+                  <li>
+                    Tại mục <strong>Build and deployment (Source)</strong>, chọn <strong>GitHub Actions</strong>. GitHub sẽ tự động đóng gói và cấp cho bạn link game vĩnh viễn để tải về điện thoại!
+                  </li>
+                </ol>
+              </div>
+
+              {/* 3. Optional APK Packaging via Capacitor */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border border-slate-800">
+                <div className="font-pixel text-[11px] text-sky-300 mb-1">
+                  3. XUẤT FILE .APK CHO ANDROID (TÙY CHỌN)
+                </div>
+                <p className="text-slate-400 mb-1.5">
+                  Sau khi tải repo từ GitHub về máy tính, bạn có thể đóng gói thành file <code>.apk</code> bằng lệnh:
+                </p>
+                <pre className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-emerald-300 overflow-x-auto">
+                  {`npm install && npm run build\nnpx @capacitor/cli init "SoulKnights" "com.obsidian.soulknights" --web-dir dist\nnpx cap add android && npx cap open android`}
+                </pre>
               </div>
             </div>
           </div>

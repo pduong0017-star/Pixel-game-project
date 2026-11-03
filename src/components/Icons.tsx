@@ -441,3 +441,14 @@ export function SparkleCrownIcon({ className = 'w-4 h-4' }: { className?: string
   );
 }
 
+export function PhoneDownloadIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <rect x="3" y="1" width="10" height="14" rx="1.5" fill="#0F172A" stroke="#38BDF8" strokeWidth="1.5" />
+      <path d="M8 4V10M8 10L5.5 7.5M8 10L10.5 7.5" stroke="#4ADE80" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="6" y="12" width="4" height="1.2" fill="#94A3B8" />
+    </svg>
+  );
+}
+
+

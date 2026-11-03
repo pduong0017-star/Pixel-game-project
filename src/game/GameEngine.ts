@@ -713,7 +713,7 @@ export class IsometricGameEngine {
   public start() {
     this.lastTime = performance.now();
     const loop = (now: number) => {
-      const rawDt = (now - this.lastTime) / 1000;
+      const rawDt = Math.max(0, (now - this.lastTime) / 1000);
       this.lastTime = now;
       const dt = Math.min(rawDt, 0.05);
 
@@ -3387,7 +3387,7 @@ export class IsometricGameEngine {
     ctx.fill();
 
     const frames = this.sprites.pets[this.selectedPet];
-    const sprite = frames[Math.floor(this.pet.animPhase) % 2];
+    const sprite = frames[Math.abs(Math.floor(this.pet.animPhase)) % 2];
 
     ctx.save();
     ctx.translate(Math.round(scr.x), Math.round(scr.y));
@@ -3438,7 +3438,7 @@ export class IsometricGameEngine {
       ctx.restore();
     }
 
-    const frameIdx = Math.floor(this.globalTime * 5 + en.id) % 2;
+    const frameIdx = Math.abs(Math.floor(this.globalTime * 5 + en.id)) % 2;
     const sprite =
       en.hitFlash > 0
         ? this.sprites.enemiesRedFlash[en.type][frameIdx]
@@ -3531,7 +3531,7 @@ export class IsometricGameEngine {
     const skinFrames =
       this.sprites.heroesSkins?.[this.selectedClass]?.[this.selectedSkinTier] ||
       this.sprites.heroes[this.selectedClass];
-    const frameIdx = Math.floor(p.animPhase) % 2;
+    const frameIdx = Math.abs(Math.floor(p.animPhase)) % 2;
     const sprite = skinFrames[frameIdx];
 
     ctx.save();
