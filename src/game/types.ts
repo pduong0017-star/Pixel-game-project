@@ -6,8 +6,29 @@ export type GameState =
   | 'VICTORY'
   | 'GAME_OVER';
 
-export type HeroClassId = 'knight' | 'pyromancer' | 'rogue';
+export type DifficultyId = 'normal' | 'badass' | 'hell';
+
+export interface DifficultyConfig {
+  id: DifficultyId;
+  name: string;
+  subtitle: string;
+  hpMult: number;
+  dmgMult: number;
+  speedMult: number;
+  eliteChance: number;
+  gemMult: number;
+  accent: string;
+}
+
+export type HeroClassId = 'knight' | 'pyromancer' | 'rogue' | 'alchemist';
 export type PetId = 'cat' | 'mini_slime' | 'baby_dragon';
+export type AvatarId =
+  | 'knight_helm'
+  | 'pyro_hood'
+  | 'rogue_mask'
+  | 'alchemist_visor'
+  | 'dragon_crest'
+  | 'slime_crown';
 
 export interface HeroClassConfig {
   id: HeroClassId;
@@ -41,9 +62,11 @@ export interface PetConfig {
 export type WeaponId =
   | 'broadsword'
   | 'twin_daggers'
+  | 'excalibur'
   | 'pioneer_pistol'
   | 'splitter_shotgun'
   | 'plasma_rifle'
+  | 'frost_laser'
   | 'thunder_staff'
   | 'inferno_bow';
 
@@ -64,10 +87,38 @@ export interface WeaponConfig {
   coreColor: string;
   rarity: 'Common' | 'Rare' | 'Epic' | 'Legendary';
   rarityColor: string;
+  shopGemsCost: number;
   piercing?: boolean;
   explosive?: boolean;
   chainLightning?: boolean;
   description: string;
+}
+
+export interface PermanentUpgrades {
+  hpLevel: number; // +15 Max HP per level
+  armorLevel: number; // +8 Max Shield per level
+  manaLevel: number; // +25 Max Mana per level
+  dmgLevel: number; // +8% Damage per level
+  goldLevel: number; // +20 Starting Gold per level
+}
+
+export interface PlayerProfile {
+  playerName: string;
+  avatarId: AvatarId;
+  soulGems: number;
+  totalKills: number;
+  runsCompleted: number;
+  upgrades: PermanentUpgrades;
+  preRunWeapon: WeaponId | null;
+  preRunPotion: boolean;
+}
+
+export interface GameSettings {
+  muted: boolean;
+  shakeIntensity: 'off' | 'normal' | 'high';
+  autoAim: boolean;
+  showDamageNumbers: boolean;
+  controlScale: 'normal' | 'large';
 }
 
 export type TileType =
@@ -76,6 +127,8 @@ export type TileType =
   | 'floor_wood'
   | 'floor_carpet'
   | 'floor_moss'
+  | 'floor_crystal'
+  | 'floor_lava'
   | 'wall'
   | 'pillar'
   | 'door_open'
@@ -90,6 +143,8 @@ export interface DungeonTile {
   explored: boolean;
   visible: boolean;
   hasTorch?: boolean;
+  trapState?: 'idle' | 'windup' | 'active';
+  trapTimer?: number;
   variant: number;
 }
 
@@ -119,9 +174,20 @@ export interface DungeonRoom {
   doorTiles: { gx: number; gy: number }[];
 }
 
+export interface DestructibleProp {
+  id: number;
+  roomId: number;
+  kind: 'crate' | 'vase';
+  gx: number;
+  gy: number;
+  hp: number;
+  hitFlash: number;
+}
+
 export type EnemyType =
   | 'slime'
   | 'goblin'
+  | 'necro_mage'
   | 'golem'
   | 'warden_boss'
   | 'dummy';
@@ -155,6 +221,8 @@ export interface Enemy {
   hopZ: number;
   animPhase: number;
   isBoss?: boolean;
+  isElite?: boolean;
+  enraged?: boolean;
 }
 
 export type InteractableType =
@@ -178,7 +246,7 @@ export interface Interactable {
   gx: number;
   gy: number;
   opened: boolean;
-  value: number; // gold cost or amount
+  value: number;
   bobPhase: number;
   weaponId?: WeaponId;
   heroId?: HeroClassId;
@@ -221,7 +289,7 @@ export interface Projectile {
 
 export interface TelegraphZone {
   id: number;
-  shape: 'circle' | 'line';
+  shape: 'circle' | 'line' | 'tile';
   gx: number;
   gy: number;
   endGx?: number;
@@ -289,6 +357,7 @@ export interface BoonOption {
 
 export interface HudSnapshot {
   inLivingRoom: boolean;
+  difficulty: DifficultyId;
   hp: number;
   maxHp: number;
   armor: number;
@@ -296,6 +365,7 @@ export interface HudSnapshot {
   mana: number;
   maxMana: number;
   gold: number;
+  soulGemsEarned: number;
   floor: number;
   maxFloors: number;
   level: number;

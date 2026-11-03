@@ -1,5 +1,6 @@
 import {
   BOON_POOL,
+  DIFFICULTIES,
   GeneratedFloor,
   HERO_CLASSES,
   PETS,
@@ -10,12 +11,16 @@ import {
 } from './dungeonGen';
 import { SpriteBank, getSpriteBank } from './pixelSprites';
 import { sound } from './sound';
+import { DEFAULT_PROFILE, DEFAULT_SETTINGS } from './storage';
 import {
   BoonOption,
+  DestructibleProp,
+  DifficultyId,
   DungeonRoom,
   DungeonTile,
   Enemy,
   FloatingText,
+  GameSettings,
   GameState,
   GhostTrail,
   HeroClassId,
@@ -24,6 +29,7 @@ import {
   LightningBolt,
   Particle,
   PetId,
+  PlayerProfile,
   Projectile,
   SlashEffect,
   TelegraphZone,
@@ -46,14 +52,25 @@ export class IsometricGameEngine {
   public gameState: GameState = 'TITLE_MENU';
   public selectedClass: HeroClassId = 'knight';
   public selectedPet: PetId = 'cat';
+  public selectedDifficulty: DifficultyId = 'normal';
+
+  private profile: PlayerProfile = { ...DEFAULT_PROFILE };
+  private settings: GameSettings = { ...DEFAULT_SETTINGS };
 
   private onStateChange: (state: GameState) => void;
   private onHudUpdate: (hud: HudSnapshot) => void;
   private onBoonPrompt: (choices: BoonOption[]) => void;
+  private onEarnSoulGems?: (
+    gems: number,
+    killsDelta?: number,
+    runWon?: boolean,
+    consumedPreRunItems?: boolean
+  ) => void;
 
   private floorNum: number = 1;
   private dungeon!: GeneratedFloor;
   private nextInteractId: number = 600;
+  private soulGemsEarnedThisRun: number = 0;
 
   // Portal state
   private portalOpen: boolean = false;
@@ -70,10 +87,10 @@ export class IsometricGameEngine {
     facingY: 0,
     aimAngle: 0,
     spriteFacing: 1,
-    hp: 140,
-    maxHp: 140,
-    armor: 60,
-    maxArmor: 60,
+    hp: 145,
+    maxHp: 145,
+    armor: 65,
+    maxArmor: 65,
     mana: 200,
     maxMana: 200,
     armorRegenTimer: 0,
@@ -83,24 +100,24 @@ export class IsometricGameEngine {
     activeWeaponIdx: 0 as 0 | 1,
     statueBlessing: null as 'paladin' | 'sorcerer' | 'berserker' | null,
     attackCooldown: 0,
-    maxAttackCooldown: 0.32,
+    maxAttackCooldown: 0.31,
     dashCooldown: 0,
-    maxDashCooldown: 1.1,
+    maxDashCooldown: 1.05,
     dashTimer: 0,
     dashDirX: 0,
     dashDirY: 0,
     ghostSpawnTimer: 0,
     invulnTimer: 0, // 0.5s I-frame on Dash
     skillCooldown: 0,
-    maxSkillCooldown: 5.5,
-    moveSpeed: 5.4,
+    maxSkillCooldown: 5.2,
+    moveSpeed: 5.5,
     critChance: 0.18,
-    gold: 25,
+    gold: 30,
     level: 1,
     xp: 0,
     xpToNext: 60,
     potions: 2,
-    maxPotions: 3,
+    maxPotions: 4,
     kills: 0,
     damageDealt: 0,
     hitFlash: 0,
@@ -161,7 +178,13 @@ export class IsometricGameEngine {
     canvas: HTMLCanvasElement,
     onStateChange: (state: GameState) => void,
     onHudUpdate: (hud: HudSnapshot) => void,
-    onBoonPrompt: (choices: BoonOption[]) => void
+    onBoonPrompt: (choices: BoonOption[]) => void,
+    onEarnSoulGems?: (
+      gems: number,
+      killsDelta?: number,
+      runWon?: boolean,
+      consumedPreRunItems?: boolean
+    ) => void
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -169,8 +192,9 @@ export class IsometricGameEngine {
     this.onStateChange = onStateChange;
     this.onHudUpdate = onHudUpdate;
     this.onBoonPrompt = onBoonPrompt;
+    this.onEarnSoulGems = onEarnSoulGems;
 
-    for (let i = 0; i < 280; i++) {
+    for (let i = 0; i < 320; i++) {
       this.particles.push({
         active: false,
         gx: 0,
@@ -187,7 +211,7 @@ export class IsometricGameEngine {
       });
     }
 
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 110; i++) {
       this.projectiles.push({
         active: false,
         fromPlayer: true,
@@ -216,6 +240,20 @@ export class IsometricGameEngine {
 
     this.bindEvents();
     this.resize();
+  }
+
+  public updateProfile(profile: PlayerProfile) {
+    this.profile = profile;
+  }
+
+  public updateSettings(settings: GameSettings) {
+    this.settings = settings;
+    sound.setMuted(settings.muted);
+  }
+
+  public selectDifficulty(diff: DifficultyId) {
+    this.selectedDifficulty = diff;
+    this.syncHud();
   }
 
   private bindEvents() {
@@ -261,10 +299,6 @@ export class IsometricGameEngine {
     const code = e.code;
 
     if (this.gameState === 'TITLE_MENU') {
-      if (code === 'Enter' || code === 'Space') {
-        e.preventDefault();
-        this.enterLivingRoom(this.selectedClass);
-      }
       return;
     }
 
@@ -403,20 +437,49 @@ export class IsometricGameEngine {
     this.syncHud();
   }
 
-  public selectHeroClass(cls: HeroClassId) {
-    this.selectedClass = cls;
+  private applyHeroStatsAndUpgrades(cls: HeroClassId) {
     const cfg = HERO_CLASSES[cls];
-    this.player.maxHp = cfg.maxHp;
-    this.player.hp = cfg.maxHp;
-    this.player.maxArmor = cfg.maxArmor;
-    this.player.armor = cfg.maxArmor;
-    this.player.maxMana = cfg.maxMana;
-    this.player.mana = cfg.maxMana;
+    const upg = this.profile.upgrades;
+
+    const bonusHp = upg.hpLevel * 15;
+    const bonusArmor = upg.armorLevel * 8;
+    const bonusMana = upg.manaLevel * 25;
+    const bonusDmgMult = 1 + upg.dmgLevel * 0.08;
+    const bonusGold = upg.goldLevel * 20;
+
+    this.player.maxHp = cfg.maxHp + bonusHp;
+    this.player.hp = this.player.maxHp;
+    this.player.maxArmor = cfg.maxArmor + bonusArmor;
+    this.player.armor = this.player.maxArmor;
+    this.player.maxMana = cfg.maxMana + bonusMana;
+    this.player.mana = this.player.maxMana;
     this.player.critChance = cfg.critChance;
     this.player.moveSpeed = cfg.moveSpeed;
+    this.player.damageMultiplier = bonusDmgMult;
+    this.player.attackSpeedMultiplier = 1.0;
     this.player.maxSkillCooldown = cfg.skillCooldown;
-    this.player.weapons = [cfg.starterWeaponId, cfg.secondaryWeaponId];
+    this.player.gold = 30 + bonusGold;
+
+    // Equip Pre-Run Weapon if purchased in Main Menu Armory!
+    const primaryWpn = this.profile.preRunWeapon || cfg.starterWeaponId;
+    const secondaryWpn =
+      this.profile.preRunWeapon && this.profile.preRunWeapon !== cfg.starterWeaponId
+        ? cfg.starterWeaponId
+        : cfg.secondaryWeaponId;
+
+    this.player.weapons = [primaryWpn, secondaryWpn];
     this.player.activeWeaponIdx = 0;
+    this.player.potions = 2 + (this.profile.preRunPotion ? 1 : 0);
+    this.player.maxPotions = 4;
+
+    if (this.profile.preRunWeapon || this.profile.preRunPotion) {
+      this.onEarnSoulGems?.(0, 0, false, true);
+    }
+  }
+
+  public selectHeroClass(cls: HeroClassId) {
+    this.selectedClass = cls;
+    this.applyHeroStatsAndUpgrades(cls);
     this.syncHud();
   }
 
@@ -435,11 +498,15 @@ export class IsometricGameEngine {
   }
 
   // Enter the Living Room Hub (Phòng Chờ Soul Knight)
-  public enterLivingRoom(cls: HeroClassId = this.selectedClass) {
+  public enterLivingRoom(
+    cls: HeroClassId = this.selectedClass,
+    diff: DifficultyId = this.selectedDifficulty
+  ) {
     this.selectedClass = cls;
-    const cfg = HERO_CLASSES[cls];
+    this.selectedDifficulty = diff;
     this.floorNum = 1;
     this.portalOpen = true;
+    this.soulGemsEarnedThisRun = 0;
 
     this.player = {
       gx: 11.5,
@@ -451,20 +518,20 @@ export class IsometricGameEngine {
       facingY: 0,
       aimAngle: 0,
       spriteFacing: 1,
-      hp: cfg.maxHp,
-      maxHp: cfg.maxHp,
-      armor: cfg.maxArmor,
-      maxArmor: cfg.maxArmor,
-      mana: cfg.maxMana,
-      maxMana: cfg.maxMana,
+      hp: 145,
+      maxHp: 145,
+      armor: 65,
+      maxArmor: 65,
+      mana: 200,
+      maxMana: 200,
       armorRegenTimer: 0,
       damageMultiplier: 1.0,
       attackSpeedMultiplier: 1.0,
-      weapons: [cfg.starterWeaponId, cfg.secondaryWeaponId],
+      weapons: ['broadsword', 'pioneer_pistol'],
       activeWeaponIdx: 0,
       statueBlessing: null,
       attackCooldown: 0,
-      maxAttackCooldown: WEAPONS[cfg.starterWeaponId].cooldown,
+      maxAttackCooldown: 0.31,
       dashCooldown: 0,
       maxDashCooldown: 1.05,
       dashTimer: 0,
@@ -473,15 +540,15 @@ export class IsometricGameEngine {
       ghostSpawnTimer: 0,
       invulnTimer: 0,
       skillCooldown: 0,
-      maxSkillCooldown: cfg.skillCooldown,
-      moveSpeed: cfg.moveSpeed,
-      critChance: cfg.critChance,
+      maxSkillCooldown: 5.2,
+      moveSpeed: 5.5,
+      critChance: 0.18,
       gold: 30,
       level: 1,
       xp: 0,
       xpToNext: 60,
       potions: 2,
-      maxPotions: 3,
+      maxPotions: 4,
       kills: 0,
       damageDealt: 0,
       hitFlash: 0,
@@ -492,6 +559,8 @@ export class IsometricGameEngine {
       activeBoons: [],
       moveTarget: null,
     };
+
+    this.applyHeroStatsAndUpgrades(cls);
 
     this.dungeon = generateLivingRoom();
     this.player.gx = this.dungeon.spawnGx;
@@ -513,16 +582,22 @@ export class IsometricGameEngine {
       this.player.gx,
       this.player.gy,
       30,
-      'LIVING ROOM HUB',
-      '#fde047',
-      1.25
+      `LIVING ROOM · ${DIFFICULTIES[diff].name.toUpperCase()}`,
+      DIFFICULTIES[diff].accent,
+      1.2
     );
     this.setGameState('PLAYING');
     sound.playPortalOpen();
   }
 
-  public startNewRun(cls: HeroClassId = this.selectedClass) {
-    this.selectHeroClass(cls);
+  public startNewRun(
+    cls: HeroClassId = this.selectedClass,
+    diff: DifficultyId = this.selectedDifficulty
+  ) {
+    this.selectedClass = cls;
+    this.selectedDifficulty = diff;
+    this.soulGemsEarnedThisRun = 0;
+    this.applyHeroStatsAndUpgrades(cls);
     this.loadFloor(1);
     this.setGameState('PLAYING');
     sound.playStairsDescend();
@@ -530,7 +605,7 @@ export class IsometricGameEngine {
 
   private loadFloor(floorNum: number) {
     this.floorNum = floorNum;
-    this.dungeon = generateDungeonFloor(floorNum);
+    this.dungeon = generateDungeonFloor(floorNum, this.selectedDifficulty);
     this.portalOpen = false;
     this.player.gx = this.dungeon.spawnGx;
     this.player.gy = this.dungeon.spawnGy;
@@ -544,7 +619,7 @@ export class IsometricGameEngine {
     this.floatingTexts = [];
     this.projectiles.forEach((p) => (p.active = false));
 
-    this.revealFogAround(this.player.gx, this.player.gy, 9.5);
+    this.revealFogAround(this.player.gx, this.player.gy, 10.0);
     const scr = this.gridToWorld(this.player.gx, this.player.gy, 0);
     this.camX = scr.x;
     this.camY = scr.y;
@@ -553,9 +628,9 @@ export class IsometricGameEngine {
       this.player.gx,
       this.player.gy,
       28,
-      `STAGE 1-${floorNum}`,
-      '#fde047',
-      1.3
+      `STAGE 1-${floorNum} (${DIFFICULTIES[this.selectedDifficulty].name.toUpperCase()})`,
+      DIFFICULTIES[this.selectedDifficulty].accent,
+      1.25
     );
     this.syncHud();
   }
@@ -563,18 +638,18 @@ export class IsometricGameEngine {
   public applyBoon(boon: BoonOption) {
     this.player.activeBoons.push(boon);
     if (boon.id === 'vitality_surge') {
-      const bonusHp = Math.round(this.player.maxHp * 0.2);
+      const bonusHp = Math.round(this.player.maxHp * 0.25);
       this.player.maxHp += bonusHp;
       this.player.hp = Math.min(
         this.player.maxHp,
-        this.player.hp + Math.round(this.player.maxHp * 0.4)
+        this.player.hp + Math.round(this.player.maxHp * 0.45)
       );
     } else if (boon.id === 'blitz_reflex') {
       this.player.attackSpeedMultiplier *= 1.3;
       this.player.maxSkillCooldown *= 0.8;
     } else if (boon.id === 'executioner') {
-      this.player.damageMultiplier *= 1.28;
-      this.player.critChance = Math.min(0.85, this.player.critChance + 0.15);
+      this.player.damageMultiplier *= 1.3;
+      this.player.critChance = Math.min(0.88, this.player.critChance + 0.15);
     }
 
     sound.playLevelUp();
@@ -712,11 +787,13 @@ export class IsometricGameEngine {
 
     this.telegraphs = [];
 
+    this.updateSpikeTraps(dt);
     this.updatePlayer(dt, now);
     this.updateRoomLockState();
     this.updatePet(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);
+    this.updateProps(dt);
     this.updateEffects(dt);
     this.updateCamera(dt);
 
@@ -729,6 +806,12 @@ export class IsometricGameEngine {
       this.portalOpen = true;
       sound.playPortalOpen();
       this.addShake(6);
+      const bonusGems = Math.round(
+        25 * this.floorNum * DIFFICULTIES[this.selectedDifficulty].gemMult
+      );
+      this.soulGemsEarnedThisRun += bonusGems;
+      this.onEarnSoulGems?.(bonusGems, 0, false);
+
       this.spawnParticles(
         this.dungeon.stairsGx,
         this.dungeon.stairsGy,
@@ -741,7 +824,7 @@ export class IsometricGameEngine {
         this.player.gx,
         this.player.gy,
         34,
-        'PORTAL UNLOCKED!',
+        `PORTAL OPEN! +${bonusGems} GEMS`,
         '#d8b4fe',
         1.35
       );
@@ -791,6 +874,100 @@ export class IsometricGameEngine {
     }
   }
 
+  private updateSpikeTraps(dt: number) {
+    if (this.dungeon.inLivingRoom) return;
+    const p = this.player;
+    for (let y = 0; y < this.dungeon.height; y++) {
+      for (let x = 0; x < this.dungeon.width; x++) {
+        const tile = this.dungeon.tiles[y][x];
+        if (tile.type !== 'spike_trap' || !tile.visible) continue;
+        tile.trapTimer = (tile.trapTimer || 0) + dt;
+        const cycle = tile.trapTimer % 3.8;
+        if (cycle < 2.2) {
+          tile.trapState = 'idle';
+        } else if (cycle < 2.9) {
+          tile.trapState = 'windup';
+        } else {
+          tile.trapState = 'active';
+          // Hurt player if standing on active spikes
+          if (
+            Math.hypot(p.gx - (x + 0.5), p.gy - (y + 0.5)) < 0.65 &&
+            p.invulnTimer <= 0 &&
+            p.dashTimer <= 0
+          ) {
+            this.damagePlayer(12);
+          }
+        }
+      }
+    }
+  }
+
+  private updateProps(dt: number) {
+    for (const prop of this.dungeon.props) {
+      if (prop.hp <= 0) continue;
+      prop.hitFlash = Math.max(0, prop.hitFlash - dt);
+    }
+  }
+
+  private damageProp(prop: DestructibleProp, dmg: number) {
+    if (prop.hp <= 0) return;
+    prop.hp -= dmg;
+    prop.hitFlash = 0.1;
+    sound.playHit(false, false);
+    this.spawnParticles(
+      prop.gx,
+      prop.gy,
+      8,
+      6,
+      prop.kind === 'crate' ? '#d97706' : '#06b6d4',
+      2.4
+    );
+
+    if (prop.hp <= 0) {
+      this.spawnParticles(
+        prop.gx,
+        prop.gy,
+        10,
+        16,
+        prop.kind === 'crate' ? '#b45309' : '#22d3ee',
+        3.6
+      );
+      // 55% chance to drop Gold, Mana Orb, or Healing Vial!
+      const roll = Math.random();
+      if (roll < 0.28) {
+        this.dungeon.interactables.push({
+          id: this.nextInteractId++,
+          type: 'gold',
+          gx: prop.gx,
+          gy: prop.gy,
+          opened: false,
+          value: 8 + Math.floor(Math.random() * 10),
+          bobPhase: 0,
+        });
+      } else if (roll < 0.52) {
+        this.dungeon.interactables.push({
+          id: this.nextInteractId++,
+          type: 'mana_orb',
+          gx: prop.gx,
+          gy: prop.gy,
+          opened: false,
+          value: 25,
+          bobPhase: 0,
+        });
+      } else if (roll < 0.62) {
+        this.dungeon.interactables.push({
+          id: this.nextInteractId++,
+          type: 'potion',
+          gx: prop.gx,
+          gy: prop.gy,
+          opened: false,
+          value: 1,
+          bobPhase: 0,
+        });
+      }
+    }
+  }
+
   // Soul Knight Multi-Room Lock & Clear Mechanics
   private updateRoomLockState() {
     if (this.dungeon.inLivingRoom) return;
@@ -800,7 +977,6 @@ export class IsometricGameEngine {
 
     curRoom.visited = true;
 
-    // If entering an uncleared combat/boss room -> slam iron gates shut & wake enemies!
     if (!curRoom.cleared && !curRoom.locked) {
       const roomEnemies = this.dungeon.enemies.filter(
         (e) => e.roomId === curRoom.id
@@ -811,9 +987,15 @@ export class IsometricGameEngine {
         this.addShake(5);
         for (const dtile of curRoom.doorTiles) {
           this.dungeon.tiles[dtile.gy][dtile.gx].type = 'door_locked';
-          this.spawnParticles(dtile.gx + 0.5, dtile.gy + 0.5, 6, 6, '#94a3b8', 2);
+          this.spawnParticles(
+            dtile.gx + 0.5,
+            dtile.gy + 0.5,
+            6,
+            6,
+            '#94a3b8',
+            2
+          );
         }
-        // Wake all enemies in this room with '!' alert!
         for (const en of roomEnemies) {
           en.aggroed = true;
           en.alertTimer = 0.95;
@@ -824,7 +1006,6 @@ export class IsometricGameEngine {
       }
     }
 
-    // If room is locked and all its enemies are defeated -> open doors & drop reward!
     if (curRoom.locked) {
       const remaining = this.dungeon.enemies.filter(
         (e) => e.roomId === curRoom.id
@@ -844,15 +1025,20 @@ export class IsometricGameEngine {
             2.5
           );
         }
+        const roomGems = Math.round(
+          10 * DIFFICULTIES[this.selectedDifficulty].gemMult
+        );
+        this.soulGemsEarnedThisRun += roomGems;
+        this.onEarnSoulGems?.(roomGems, 0, false);
+
         this.addFloatingText(
           p.gx,
           p.gy,
           30,
-          'ROOM CLEARED!',
+          `ROOM CLEARED! +${roomGems}💎`,
           '#4ade80',
           1.25
         );
-        // Spawn a reward chest in cleared combat room
         this.dungeon.interactables.push({
           id: this.nextInteractId++,
           type: 'chest',
@@ -876,10 +1062,15 @@ export class IsometricGameEngine {
     p.invulnTimer = Math.max(0, p.invulnTimer - dt);
     p.hitFlash = Math.max(0, p.hitFlash - dt);
 
+    // Passive slow Mana regeneration (+2.4 MP/s) so players never get stuck
+    if (p.mana < p.maxMana) {
+      p.mana = Math.min(p.maxMana, p.mana + 2.4 * dt);
+    }
+
     // Soul Knight Shield/Armor out-of-hit regeneration
     p.armorRegenTimer += dt;
-    if (p.armorRegenTimer > 3.8 && p.armor < p.maxArmor) {
-      p.armor = Math.min(p.maxArmor, p.armor + 10 * dt);
+    if (p.armorRegenTimer > 3.5 && p.armor < p.maxArmor) {
+      p.armor = Math.min(p.maxArmor, p.armor + 12 * dt);
     }
 
     p.squashX += (1 - p.squashX) * 14 * dt;
@@ -921,13 +1112,15 @@ export class IsometricGameEngine {
       p.aimAngle = Math.atan2(moveGy, moveGx);
     }
 
-    // Auto-track nearest enemy for weapon aiming angle (Soul Knight auto-aim)
-    const nearestFoe = this.findNearestEnemy(10.5);
-    if (nearestFoe) {
-      const dx = nearestFoe.gx - p.gx;
-      const dy = nearestFoe.gy - p.gy;
-      p.aimAngle = Math.atan2(dy, dx);
-      p.spriteFacing = dx >= 0 ? 1 : -1;
+    // Auto-track nearest enemy for weapon aiming angle if Auto-Aim is enabled in Settings
+    if (this.settings.autoAim) {
+      const nearestFoe = this.findNearestEnemy(10.5);
+      if (nearestFoe) {
+        const dx = nearestFoe.gx - p.gx;
+        const dy = nearestFoe.gy - p.gy;
+        p.aimAngle = Math.atan2(dy, dx);
+        p.spriteFacing = dx >= 0 ? 1 : -1;
+      }
     }
 
     // Process buffered or held actions
@@ -1019,10 +1212,10 @@ export class IsometricGameEngine {
         (item.type === 'exp_gem' ||
           item.type === 'gold' ||
           item.type === 'mana_orb') &&
-        d < 3.8 &&
+        d < 4.2 &&
         d > 0.1
       ) {
-        const pullSpeed = 8.5 * (1 - d / 4.2 + 0.4);
+        const pullSpeed = 9.0 * (1 - d / 4.5 + 0.4);
         item.gx += (dx / d) * pullSpeed * dt;
         item.gy += (dy / d) * pullSpeed * dt;
       }
@@ -1076,28 +1269,28 @@ export class IsometricGameEngine {
     }
 
     if (!this.dungeon.inLivingRoom) {
-      this.revealFogAround(p.gx, p.gy, 9.5);
+      this.revealFogAround(p.gx, p.gy, 10.0);
     }
   }
 
-  // Companion Pet AI (Chilly the Cat / Bloop Slime / Ignis Dragonling)
+  // Companion Pet AI
   private updatePet(dt: number) {
     const petCfg = PETS[this.selectedPet];
     const p = this.player;
     this.pet.animPhase += dt * 10;
     this.pet.attackTimer = Math.max(0, this.pet.attackTimer - dt);
 
-    const targetFoe = this.findNearestEnemy(6.5);
+    const targetFoe = this.findNearestEnemy(6.8);
     if (targetFoe && (targetFoe.aggroed || targetFoe.type === 'dummy')) {
       const dx = targetFoe.gx - this.pet.gx;
       const dy = targetFoe.gy - this.pet.gy;
       const d = Math.hypot(dx, dy) || 1;
       this.pet.facing = dx >= 0 ? 1 : -1;
 
-      const desiredRange = petCfg.isRanged ? 4.2 : 1.1;
+      const desiredRange = petCfg.isRanged ? 4.4 : 1.15;
       if (d > desiredRange) {
-        const nx = this.pet.gx + (dx / d) * 4.8 * dt;
-        const ny = this.pet.gy + (dy / d) * 4.8 * dt;
+        const nx = this.pet.gx + (dx / d) * 5.0 * dt;
+        const ny = this.pet.gy + (dy / d) * 5.0 * dt;
         if (this.isWalkable(nx, this.pet.gy)) this.pet.gx = nx;
         if (this.isWalkable(this.pet.gx, ny)) this.pet.gy = ny;
         this.pet.hopZ = Math.abs(Math.sin(this.pet.animPhase)) * 5;
@@ -1110,8 +1303,8 @@ export class IsometricGameEngine {
               fromPlayer: true,
               gx: this.pet.gx,
               gy: this.pet.gy,
-              vx: (dx / d) * 11.5,
-              vy: (dy / d) * 11.5,
+              vx: (dx / d) * 12.0,
+              vy: (dy / d) * 12.0,
               damage: petCfg.damage,
               radius: 0.3,
               maxLife: 0.7,
@@ -1126,13 +1319,12 @@ export class IsometricGameEngine {
       return;
     }
 
-    // Otherwise follow player smoothly
     const dx = p.gx - 1.1 * p.spriteFacing - this.pet.gx;
     const dy = p.gy + 0.5 - this.pet.gy;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.35) {
-      this.pet.gx += dx * 4.5 * dt;
-      this.pet.gy += dy * 4.5 * dt;
+      this.pet.gx += dx * 4.6 * dt;
+      this.pet.gy += dy * 4.6 * dt;
       this.pet.facing = dx >= 0 ? 1 : -1;
       this.pet.hopZ = Math.abs(Math.sin(this.pet.animPhase)) * 4.5;
     } else {
@@ -1161,22 +1353,20 @@ export class IsometricGameEngine {
       p.xp -= p.xpToNext;
       p.level++;
       p.xpToNext = Math.round(p.xpToNext * 1.35);
-      p.maxHp += 10;
-      p.hp = Math.min(p.maxHp, p.hp + 25);
-      p.mana = Math.min(p.maxMana, p.mana + 40);
+      p.maxHp += 12;
+      p.hp = Math.min(p.maxHp, p.hp + 30);
+      p.mana = Math.min(p.maxMana, p.mana + 45);
       this.triggerBoonSelection();
     }
   }
 
-  // Dual-Weapon Attack System (Melee Slash + Bullet Destruction OR Ranged Gun/Staff/Bow)
+  // Dual-Weapon Attack System
   private performPlayerAttack() {
     const p = this.player;
     const wpn = this.getActiveWeapon();
 
-    // Check Mana cost for guns/staves/bows
     if (wpn.manaCost > 0 && p.mana < wpn.manaCost) {
       this.addFloatingText(p.gx, p.gy, 26, 'NO MANA!', '#60a5fa', 1.0);
-      // Automatically switch to 0-mana backup weapon if available
       const otherIdx = p.activeWeaponIdx === 0 ? 1 : 0;
       const otherId = p.weapons[otherIdx];
       if (otherId && WEAPONS[otherId].manaCost === 0) {
@@ -1191,23 +1381,25 @@ export class IsometricGameEngine {
     p.squashX = 1.26;
     p.squashY = 0.78;
 
-    const target = this.findNearestEnemy(wpn.range + 1.5);
-    if (target) {
-      const dx = target.gx - p.gx;
-      const dy = target.gy - p.gy;
-      const len = Math.hypot(dx, dy) || 1;
-      p.facingX = dx / len;
-      p.facingY = dy / len;
-      p.aimAngle = Math.atan2(dy, dx);
-      p.spriteFacing = dx >= 0 ? 1 : -1;
+    if (this.settings.autoAim) {
+      const target = this.findNearestEnemy(wpn.range + 1.8);
+      if (target) {
+        const dx = target.gx - p.gx;
+        const dy = target.gy - p.gy;
+        const len = Math.hypot(dx, dy) || 1;
+        p.facingX = dx / len;
+        p.facingY = dy / len;
+        p.aimAngle = Math.atan2(dy, dx);
+        p.spriteFacing = dx >= 0 ? 1 : -1;
+      }
     }
 
     const scaledDamage = Math.round(wpn.damage * p.damageMultiplier);
 
-    // 1. MELEE WEAPON (Fan-shaped Hitbox + Bright Slash VFX + Destroys Enemy Bullets!)
+    // 1. MELEE WEAPON (Fan-shaped Hitbox + Slash VFX + Bullet Deflection + Prop Smashing!)
     if (wpn.type === 'melee') {
-      sound.playSlash(wpn.id === 'broadsword');
-      const fanSpread = Math.PI * 0.72;
+      sound.playSlash(wpn.id === 'broadsword' || wpn.id === 'excalibur');
+      const fanSpread = wpn.id === 'excalibur' ? Math.PI * 0.88 : Math.PI * 0.72;
 
       this.slashes.push({
         gx: p.gx,
@@ -1215,18 +1407,44 @@ export class IsometricGameEngine {
         angle: p.aimAngle,
         arcSpread: fanSpread,
         radius: wpn.range,
-        timer: 0.16,
-        maxTimer: 0.16,
+        timer: 0.17,
+        maxTimer: 0.17,
         color: wpn.color,
         coreColor: wpn.coreColor,
       });
 
-      // Destroy incoming enemy projectiles inside melee slash range (Soul Knight signature mechanic!)
+      // Excalibur also launches a piercing golden sword wave projectile!
+      if (wpn.id === 'excalibur') {
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx + Math.cos(p.aimAngle) * 0.5,
+          gy: p.gy + Math.sin(p.aimAngle) * 0.5,
+          vx: Math.cos(p.aimAngle) * wpn.projectileSpeed,
+          vy: Math.sin(p.aimAngle) * wpn.projectileSpeed,
+          damage: Math.round(scaledDamage * 0.85),
+          radius: 0.52,
+          maxLife: 0.55,
+          color: '#fde047',
+          coreColor: '#ffffff',
+          piercing: true,
+        });
+      }
+
+      // Destroy incoming enemy projectiles inside melee slash range AND restore +2 Mana per bullet!
       for (const proj of this.projectiles) {
         if (!proj.active || proj.fromPlayer) continue;
-        if (Math.hypot(proj.gx - p.gx, proj.gy - p.gy) <= wpn.range + 0.4) {
+        if (Math.hypot(proj.gx - p.gx, proj.gy - p.gy) <= wpn.range + 0.45) {
           proj.active = false;
+          p.mana = Math.min(p.maxMana, p.mana + 2);
           this.spawnParticles(proj.gx, proj.gy, 12, 6, '#fde047', 2.5);
+        }
+      }
+
+      // Smash destructible crates & vases in slash radius
+      for (const prop of this.dungeon.props) {
+        if (prop.hp <= 0) continue;
+        if (Math.hypot(prop.gx - p.gx, prop.gy - p.gy) <= wpn.range + 0.35) {
+          this.damageProp(prop, scaledDamage);
         }
       }
 
@@ -1235,12 +1453,12 @@ export class IsometricGameEngine {
         const dx = en.gx - p.gx;
         const dy = en.gy - p.gy;
         const dist = Math.hypot(dx, dy);
-        if (dist <= wpn.range + (en.isBoss ? 0.65 : 0.4)) {
+        if (dist <= wpn.range + (en.isBoss ? 0.65 : 0.42)) {
           const dirX = dx / (dist || 1);
           const dirY = dy / (dist || 1);
           const dot =
             dirX * Math.cos(p.aimAngle) + dirY * Math.sin(p.aimAngle);
-          if (dot >= 0.2 || dist < 1.15) {
+          if (dot >= 0.18 || dist < 1.2) {
             this.damageEnemy(en, scaledDamage, dirX, dirY);
             hitAny = true;
           }
@@ -1252,7 +1470,11 @@ export class IsometricGameEngine {
 
     // 2. RANGED GUN / STAFF / BOW
     if (wpn.id === 'splitter_shotgun') sound.playGunshot('shotgun');
-    else if (wpn.id === 'plasma_rifle' || wpn.id === 'thunder_staff')
+    else if (
+      wpn.id === 'plasma_rifle' ||
+      wpn.id === 'thunder_staff' ||
+      wpn.id === 'frost_laser'
+    )
       sound.playGunshot('plasma');
     else if (wpn.id === 'inferno_bow') sound.playGunshot('bow');
     else sound.playGunshot('pistol');
@@ -1272,7 +1494,7 @@ export class IsometricGameEngine {
         vx: Math.cos(ang) * wpn.projectileSpeed,
         vy: Math.sin(ang) * wpn.projectileSpeed,
         damage: scaledDamage,
-        radius: wpn.type === 'staff' ? 0.44 : 0.34,
+        radius: wpn.type === 'staff' ? 0.44 : 0.35,
         maxLife: wpn.range / wpn.projectileSpeed,
         color: wpn.color,
         coreColor: wpn.coreColor,
@@ -1309,8 +1531,8 @@ export class IsometricGameEngine {
         const dx = en.gx - p.gx;
         const dy = en.gy - p.gy;
         const d = Math.hypot(dx, dy);
-        if (d <= 2.7) {
-          this.damageEnemy(en, 45, dx / (d || 1), dy / (d || 1));
+        if (d <= 2.8) {
+          this.damageEnemy(en, 50, dx / (d || 1), dy / (d || 1));
         }
       }
     }
@@ -1325,7 +1547,6 @@ export class IsometricGameEngine {
     sound.playSkillCast();
     this.addShake(10.0);
 
-    // Trigger Statue Blessing if player worshipped a Statue!
     if (p.statueBlessing === 'paladin') {
       p.invulnTimer = Math.max(p.invulnTimer, 1.5);
       p.armor = Math.min(p.maxArmor, p.armor + 25);
@@ -1333,13 +1554,13 @@ export class IsometricGameEngine {
     }
 
     if (this.selectedClass === 'knight') {
-      p.mana = Math.min(p.maxMana, p.mana + 30);
+      p.mana = Math.min(p.maxMana, p.mana + 35);
       this.slashes.push({
         gx: p.gx,
         gy: p.gy,
         angle: 0,
         arcSpread: Math.PI * 2,
-        radius: 3.5,
+        radius: 3.6,
         timer: 0.26,
         maxTimer: 0.26,
         color: '#f59e0b',
@@ -1348,16 +1569,21 @@ export class IsometricGameEngine {
       this.spawnParticles(p.gx, p.gy, 10, 32, '#fde047', 5.2);
       for (const en of [...this.dungeon.enemies]) {
         const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
-        if (d <= 3.6) {
+        if (d <= 3.7) {
           const dx = (en.gx - p.gx) / (d || 1);
           const dy = (en.gy - p.gy) / (d || 1);
-          this.damageEnemy(en, 55, dx * 1.6, dy * 1.6);
+          this.damageEnemy(
+            en,
+            Math.round(58 * p.damageMultiplier),
+            dx * 1.6,
+            dy * 1.6
+          );
           en.state = 'recover';
           en.stateTimer = 1.1;
         }
       }
     } else if (this.selectedClass === 'pyromancer') {
-      p.mana = Math.min(p.maxMana, p.mana + 40);
+      p.mana = Math.min(p.maxMana, p.mana + 45);
       for (let i = 0; i < 8; i++) {
         const ang = (i / 8) * Math.PI * 2;
         this.spawnProjectile({
@@ -1366,9 +1592,9 @@ export class IsometricGameEngine {
           gy: p.gy,
           vx: Math.cos(ang) * 10.5,
           vy: Math.sin(ang) * 10.5,
-          damage: 42,
+          damage: Math.round(44 * p.damageMultiplier),
           radius: 0.45,
-          maxLife: 0.8,
+          maxLife: 0.85,
           color: '#f97316',
           coreColor: '#fef08a',
           piercing: true,
@@ -1376,6 +1602,30 @@ export class IsometricGameEngine {
         });
       }
       this.spawnParticles(p.gx, p.gy, 10, 28, '#f97316', 4.6);
+    } else if (this.selectedClass === 'alchemist') {
+      // Cyber Alchemist Skill: Alchemical Venom & Cryo Nova + Shield & Mana Regen
+      p.armor = Math.min(p.maxArmor, p.armor + 15);
+      p.mana = Math.min(p.maxMana, p.mana + 35);
+      for (let i = 0; i < 6; i++) {
+        const ang = p.aimAngle + ((i - 2.5) / 6) * Math.PI * 1.6;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 11.5,
+          vy: Math.sin(ang) * 11.5,
+          damage: Math.round(46 * p.damageMultiplier),
+          radius: 0.48,
+          maxLife: 0.78,
+          color: '#84cc16',
+          coreColor: '#ecfccb',
+          piercing: true,
+          explosive: true,
+          chainLightning: true,
+        });
+      }
+      this.spawnParticles(p.gx, p.gy, 10, 30, '#84cc16', 4.8);
+      this.addFloatingText(p.gx, p.gy, 30, 'VENOM CONCOCTION!', '#a3e635', 1.15);
     } else {
       p.dashCooldown = 0;
       for (let i = -2; i <= 3; i++) {
@@ -1386,7 +1636,7 @@ export class IsometricGameEngine {
           gy: p.gy,
           vx: Math.cos(ang) * 14.5,
           vy: Math.sin(ang) * 14.5,
-          damage: 38,
+          damage: Math.round(40 * p.damageMultiplier),
           radius: 0.38,
           maxLife: 0.65,
           color: '#10b981',
@@ -1402,23 +1652,23 @@ export class IsometricGameEngine {
     const p = this.player;
     if (p.potions <= 0) return;
     p.potions--;
-    const heal = Math.round(p.maxHp * 0.45);
+    const heal = Math.round(p.maxHp * 0.48);
     p.hp = Math.min(p.maxHp, p.hp + heal);
-    p.mana = Math.min(p.maxMana, p.mana + 60);
+    p.mana = Math.min(p.maxMana, p.mana + 65);
     sound.playPickup('potion');
     this.spawnParticles(p.gx, p.gy, 12, 18, '#f43f5e', 3.2);
     this.addFloatingText(
       p.gx,
       p.gy,
       24,
-      `+${heal} HP / +60 MP`,
+      `+${heal} HP / +65 MP`,
       '#4ade80',
       1.15
     );
     this.syncHud();
   }
 
-  // Contextual Interaction (Living Room Heroes/Pets, Weapon Drops, Chests, Shopkeeper, Statues)
+  // Contextual Interaction
   public tryInteract() {
     const p = this.player;
 
@@ -1481,7 +1731,6 @@ export class IsometricGameEngine {
         sound.playPickup('shrine');
         this.spawnParticles(closest.gx, closest.gy, 10, 24, '#fde047', 4.2);
 
-        // Spawn a random Weapon Drop right next to the opened chest!
         const wpnId =
           WEAPON_POOL[Math.floor(Math.random() * WEAPON_POOL.length)];
         this.dungeon.interactables.push({
@@ -1514,7 +1763,6 @@ export class IsometricGameEngine {
           p.activeWeaponIdx = 1;
           closest.opened = true;
         } else {
-          // Swap with currently active weapon and leave old weapon on the floor
           const oldWeaponId = p.weapons[p.activeWeaponIdx]!;
           p.weapons[p.activeWeaponIdx] = newWeaponId;
           closest.weaponId = oldWeaponId;
@@ -1617,6 +1865,11 @@ export class IsometricGameEngine {
 
   private enterPortal() {
     if (this.floorNum >= MAX_FLOORS) {
+      const clearGems = Math.round(
+        100 * DIFFICULTIES[this.selectedDifficulty].gemMult
+      );
+      this.soulGemsEarnedThisRun += clearGems;
+      this.onEarnSoulGems?.(clearGems, 0, true);
       sound.playGameOver(true);
       this.setGameState('VICTORY');
     } else {
@@ -1633,7 +1886,7 @@ export class IsometricGameEngine {
     this.setGameState('BOON_SELECT');
   }
 
-  // Hit Feedback: 0.1s Red Flash + Smooth Knockback + Chain Lightning
+  // Hit Feedback: 0.1s Red Flash + Smooth Knockback + Chain Lightning + Boss Enrage
   private damageEnemy(
     en: Enemy,
     baseDamage: number,
@@ -1670,7 +1923,24 @@ export class IsometricGameEngine {
       en.state = 'chase';
     }
 
-    const kbForce = en.isBoss ? 2.2 : 5.8;
+    // Check Boss Enrage Phase (<50% HP)
+    if (en.isBoss && !en.enraged && en.hp > 0 && en.hp <= en.maxHp * 0.5) {
+      en.enraged = true;
+      en.speed *= 1.25;
+      en.windupDuration *= 0.8;
+      this.addShake(9);
+      this.spawnParticles(en.gx, en.gy, 12, 34, '#f43f5e', 5.2);
+      this.addFloatingText(
+        en.gx,
+        en.gy,
+        36,
+        'BOSS ENRAGED!',
+        '#f43f5e',
+        1.35
+      );
+    }
+
+    const kbForce = en.isBoss ? 2.0 : en.isElite ? 3.8 : 5.8;
     en.vx = knockDirX * kbForce;
     en.vy = knockDirY * kbForce;
 
@@ -1689,107 +1959,120 @@ export class IsometricGameEngine {
       24,
       isCrit ? `${finalDmg}!` : `${finalDmg}`,
       isCrit ? '#fde047' : '#f8fafc',
-      isCrit ? 1.25 : 0.98
+      isCrit ? 1.28 : 0.96
     );
 
-    if (isCrit) {
-      this.hitstopTimer = 0.038;
-      this.addShake(5.5);
-    }
-
-    // Chain Lightning from Boon or Staff of Thunder
-    if (
-      this.hasBoon('chain_arc') ||
-      this.getActiveWeapon().chainLightning
-    ) {
-      const other = this.dungeon.enemies.find(
-        (o) =>
-          o.id !== en.id &&
-          o.type !== 'dummy' &&
-          Math.hypot(o.gx - en.gx, o.gy - en.gy) < 4.5
-      );
-      if (other) {
-        const arcDmg = Math.round(baseDamage * 0.65);
-        other.hp -= arcDmg;
-        other.hitFlash = 0.11;
-        const scrA = this.gridToWorld(en.gx, en.gy, 16);
-        const scrB = this.gridToWorld(other.gx, other.gy, 16);
-        this.lightningBolts.push({
-          x1: scrA.x,
-          y1: scrA.y,
-          x2: scrB.x,
-          y2: scrB.y,
-          timer: 0.18,
-          maxTimer: 0.18,
-        });
-        this.spawnParticles(other.gx, other.gy, 12, 9, '#38bdf8', 2.8);
-        this.addFloatingText(
-          other.gx,
-          other.gy,
-          22,
-          `⚡${arcDmg}`,
-          '#38bdf8',
-          0.95
-        );
-        if (other.hp <= 0) {
-          this.handleEnemyDeath(other);
-        }
-      }
+    const wpn = this.getActiveWeapon();
+    if (this.hasBoon('chain_arc') || wpn.chainLightning) {
+      this.triggerChainLightning(en, Math.round(finalDmg * 0.65));
     }
 
     if (en.hp <= 0) {
-      this.handleEnemyDeath(en);
+      this.killEnemy(en);
     }
   }
 
-  private handleEnemyDeath(en: Enemy) {
+  private triggerChainLightning(source: Enemy, arcDmg: number) {
+    for (const other of this.dungeon.enemies) {
+      if (other.id === source.id || other.hp <= 0) continue;
+      const d = Math.hypot(other.gx - source.gx, other.gy - source.gy);
+      if (d <= 4.5) {
+        other.hp -= arcDmg;
+        other.hitFlash = 0.1;
+        this.player.damageDealt += arcDmg;
+
+        const s1 = this.gridToWorld(source.gx, source.gy, 16);
+        const s2 = this.gridToWorld(other.gx, other.gy, 16);
+        this.lightningBolts.push({
+          x1: s1.x,
+          y1: s1.y,
+          x2: s2.x,
+          y2: s2.y,
+          timer: 0.18,
+          maxTimer: 0.18,
+        });
+
+        this.spawnParticles(other.gx, other.gy, 12, 8, '#38bdf8', 3.0);
+        this.addFloatingText(other.gx, other.gy, 22, `${arcDmg}`, '#38bdf8', 0.9);
+        if (other.hp <= 0 && other.type !== 'dummy') {
+          this.killEnemy(other);
+        }
+        break;
+      }
+    }
+  }
+
+  private killEnemy(en: Enemy) {
     const idx = this.dungeon.enemies.findIndex((e) => e.id === en.id);
     if (idx === -1) return;
     this.dungeon.enemies.splice(idx, 1);
 
     this.player.kills++;
+    this.hitstopTimer = en.isBoss ? 0.11 : 0.03;
+    this.addShake(en.isBoss ? 12.0 : en.isElite ? 6.5 : 4.2);
 
-    if (this.hasBoon('vampiric_edge')) {
-      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 8);
-      this.player.mana = Math.min(this.player.maxMana, this.player.mana + 15);
-    }
+    // Award Soul Gems for defeating foes!
+    const gemMult = DIFFICULTIES[this.selectedDifficulty].gemMult;
+    const gemsEarned = Math.round(
+      (en.isBoss ? 40 : en.isElite ? 12 : 4) * gemMult
+    );
+    this.soulGemsEarnedThisRun += gemsEarned;
+    this.onEarnSoulGems?.(gemsEarned, 1, false);
 
-    this.hitstopTimer = en.isBoss ? 0.075 : 0.032;
-    this.addShake(en.isBoss ? 12 : 5.2);
-
-    const primaryColor = en.type === 'slime' ? '#10b981' : '#ef4444';
+    // Burst death particles
     this.spawnParticles(
       en.gx,
       en.gy,
-      12,
-      en.isBoss ? 34 : 18,
-      primaryColor,
-      en.isBoss ? 5.2 : 3.6
+      10,
+      en.isBoss ? 48 : en.isElite ? 30 : 20,
+      en.type === 'slime' ? '#10b981' : '#e11d48',
+      en.isBoss ? 5.8 : 4.0
+    );
+    this.spawnParticles(
+      en.gx,
+      en.gy,
+      14,
+      en.isBoss ? 24 : 10,
+      '#fde047',
+      3.5
     );
 
-    // Drop EXP Gems, Blue Mana Orbs, and Gold Coins (Soul Knight loot shower!)
-    const gemCount = en.isBoss ? 4 : 2;
+    if (this.hasBoon('vampiric_edge')) {
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 10);
+      this.player.mana = Math.min(this.player.maxMana, this.player.mana + 18);
+      this.addFloatingText(
+        this.player.gx,
+        this.player.gy,
+        24,
+        '+10 HP / +18 MP',
+        '#4ade80',
+        0.92
+      );
+    }
+
+    // Spawn EXP Gems, Mana Orbs, and Gold Coins
+    const gemCount = en.isBoss ? 5 : en.isElite ? 3 : 2;
     for (let i = 0; i < gemCount; i++) {
       this.dungeon.interactables.push({
         id: this.nextInteractId++,
         type: 'exp_gem',
-        gx: en.gx + (Math.random() - 0.5) * 1.1,
-        gy: en.gy + (Math.random() - 0.5) * 1.1,
+        gx: en.gx + (Math.random() - 0.5) * 0.9,
+        gy: en.gy + (Math.random() - 0.5) * 0.9,
         opened: false,
-        value: en.isBoss ? 25 : 15,
+        value: en.isBoss ? 26 : 15,
         bobPhase: Math.random() * 6,
       });
     }
 
-    const manaCount = en.isBoss ? 4 : 2;
+    const manaCount = en.isBoss ? 5 : en.isElite ? 3 : 2;
     for (let i = 0; i < manaCount; i++) {
       this.dungeon.interactables.push({
         id: this.nextInteractId++,
         type: 'mana_orb',
-        gx: en.gx + (Math.random() - 0.5) * 1.1,
-        gy: en.gy + (Math.random() - 0.5) * 1.1,
+        gx: en.gx + (Math.random() - 0.5) * 1.0,
+        gy: en.gy + (Math.random() - 0.5) * 1.0,
         opened: false,
-        value: 12,
+        value: 16,
         bobPhase: Math.random() * 6,
       });
     }
@@ -1800,7 +2083,7 @@ export class IsometricGameEngine {
       gx: en.gx + (Math.random() - 0.5) * 0.8,
       gy: en.gy + (Math.random() - 0.5) * 0.8,
       opened: false,
-      value: en.isBoss ? 45 : 8 + this.floorNum * 3,
+      value: en.isBoss ? 50 : en.isElite ? 22 : 9 + this.floorNum * 3,
       bobPhase: Math.random() * 6,
     });
   }
@@ -1809,7 +2092,7 @@ export class IsometricGameEngine {
     const p = this.player;
     if (p.invulnTimer > 0 || this.gameState !== 'PLAYING') return;
 
-    p.invulnTimer = 0.48;
+    p.invulnTimer = 0.5;
     p.armorRegenTimer = 0;
     p.hitFlash = 0.2;
     p.squashX = 1.32;
@@ -1908,12 +2191,12 @@ export class IsometricGameEngine {
         en.squashX = 1 + Math.sin(prog * Math.PI * 4) * 0.14;
         en.squashY = 1 - Math.sin(prog * Math.PI * 4) * 0.14;
 
-        if (en.type === 'goblin' && prog < 0.6) {
+        if ((en.type === 'goblin' || en.type === 'necro_mage') && prog < 0.6) {
           en.targetGx = p.gx;
           en.targetGy = p.gy;
         }
 
-        if (en.type === 'goblin') {
+        if (en.type === 'goblin' || en.type === 'necro_mage') {
           this.telegraphs.push({
             id: en.id,
             shape: 'line',
@@ -1923,7 +2206,7 @@ export class IsometricGameEngine {
             endGy: en.targetGy,
             radius: 0.25,
             progress: prog,
-            color: '#a855f7',
+            color: en.type === 'necro_mage' ? '#c084fc' : '#a855f7',
           });
         } else {
           const rad =
@@ -1948,7 +2231,7 @@ export class IsometricGameEngine {
         if (en.stateTimer >= en.windupDuration) {
           this.executeEnemyAttack(en);
           en.state = 'recover';
-          en.stateTimer = en.isBoss ? 0.65 : 0.55;
+          en.stateTimer = en.isBoss ? 0.6 : 0.52;
         }
       } else if (en.state === 'recover') {
         en.stateTimer -= dt;
@@ -1976,26 +2259,69 @@ export class IsometricGameEngine {
     } else if (en.type === 'goblin') {
       const dx = en.targetGx - en.gx;
       const dy = en.targetGy - en.gy;
-      const len = Math.hypot(dx, dy) || 1;
+      const baseAng = Math.atan2(dy, dx);
       sound.playSlash(false);
-      this.spawnProjectile({
-        fromPlayer: false,
-        gx: en.gx,
-        gy: en.gy,
-        vx: (dx / len) * 8.5,
-        vy: (dy / len) * 8.5,
-        damage: en.damage,
-        radius: 0.36,
-        maxLife: 1.5,
-        color: '#a855f7',
-        coreColor: '#fde047',
-      });
+      const shots = en.isElite ? 2 : 1;
+      for (let i = 0; i < shots; i++) {
+        const ang = baseAng + (shots > 1 ? (i - 0.5) * 0.18 : 0);
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * 8.6,
+          vy: Math.sin(ang) * 8.6,
+          damage: en.damage,
+          radius: 0.36,
+          maxLife: 1.5,
+          color: '#a855f7',
+          coreColor: '#fde047',
+        });
+      }
+    } else if (en.type === 'necro_mage') {
+      // Skeleton Necro Mage fires a 3-way fan of dark soul orbs!
+      const dx = en.targetGx - en.gx;
+      const dy = en.targetGy - en.gy;
+      const baseAng = Math.atan2(dy, dx);
+      sound.playSlash(false);
+      const count = en.isElite ? 5 : 3;
+      for (let i = 0; i < count; i++) {
+        const ang = baseAng + (i - (count - 1) / 2) * 0.24;
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * 7.8,
+          vy: Math.sin(ang) * 7.8,
+          damage: en.damage,
+          radius: 0.38,
+          maxLife: 1.65,
+          color: '#9333ea',
+          coreColor: '#38bdf8',
+        });
+      }
     } else if (en.type === 'golem') {
       this.addShake(7);
       sound.playHit(false, true);
       this.spawnParticles(en.gx, en.gy, 6, 24, '#f97316', 4.5);
       if (Math.hypot(p.gx - en.gx, p.gy - en.gy) <= 2.05) {
         this.damagePlayer(en.damage);
+      }
+      if (en.isElite) {
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2;
+          this.spawnProjectile({
+            fromPlayer: false,
+            gx: en.gx,
+            gy: en.gy,
+            vx: Math.cos(ang) * 6.5,
+            vy: Math.sin(ang) * 6.5,
+            damage: Math.round(en.damage * 0.7),
+            radius: 0.38,
+            maxLife: 1.2,
+            color: '#f97316',
+            coreColor: '#fde047',
+          });
+        }
       }
     } else if (en.type === 'warden_boss') {
       this.addShake(9.5);
@@ -2004,19 +2330,20 @@ export class IsometricGameEngine {
       if (Math.hypot(p.gx - en.gx, p.gy - en.gy) <= 2.5) {
         this.damagePlayer(en.damage);
       }
-      // Soul Knight Boss radial bullet ring!
-      for (let i = 0; i < 8; i++) {
-        const ang = (i / 8) * Math.PI * 2 + this.globalTime;
+      // Soul Knight Boss radial bullet ring (12 spiral bolts when Enraged!)
+      const bulletCount = en.enraged ? 12 : 8;
+      for (let i = 0; i < bulletCount; i++) {
+        const ang = (i / bulletCount) * Math.PI * 2 + this.globalTime * 1.4;
         this.spawnProjectile({
           fromPlayer: false,
           gx: en.gx,
           gy: en.gy,
-          vx: Math.cos(ang) * 6.8,
-          vy: Math.sin(ang) * 6.8,
+          vx: Math.cos(ang) * (en.enraged ? 7.8 : 6.8),
+          vy: Math.sin(ang) * (en.enraged ? 7.8 : 6.8),
           damage: Math.round(en.damage * 0.75),
           radius: 0.38,
-          maxLife: 1.6,
-          color: '#e11d48',
+          maxLife: 1.7,
+          color: en.enraged ? '#f43f5e' : '#e11d48',
           coreColor: '#fde047',
         });
       }
@@ -2077,6 +2404,19 @@ export class IsometricGameEngine {
       }
 
       if (proj.fromPlayer) {
+        // Check destructible props collision
+        for (const prop of this.dungeon.props) {
+          if (prop.hp <= 0) continue;
+          if (Math.hypot(prop.gx - proj.gx, prop.gy - proj.gy) <= proj.radius + 0.4) {
+            this.damageProp(prop, proj.damage);
+            if (!proj.piercing) {
+              proj.active = false;
+              break;
+            }
+          }
+        }
+        if (!proj.active) continue;
+
         for (const en of [...this.dungeon.enemies]) {
           const d = Math.hypot(en.gx - proj.gx, en.gy - proj.gy);
           if (d <= proj.radius + (en.isBoss ? 0.65 : 0.45)) {
@@ -2147,6 +2487,9 @@ export class IsometricGameEngine {
     color: string,
     scale: number = 1
   ) {
+    if (!this.settings.showDamageNumbers && /^[0-9!+-]+$/.test(text)) {
+      return;
+    }
     this.floatingTexts.push({
       id: this.nextTextId++,
       gx: gx + (Math.random() - 0.5) * 0.3,
@@ -2211,7 +2554,9 @@ export class IsometricGameEngine {
   }
 
   private addShake(amount: number) {
-    this.shakeMag = Math.min(18, this.shakeMag + amount);
+    if (this.settings.shakeIntensity === 'off') return;
+    const mult = this.settings.shakeIntensity === 'high' ? 1.35 : 1.0;
+    this.shakeMag = Math.min(20, this.shakeMag + amount * mult);
   }
 
   private updateCamera(dt: number) {
@@ -2265,7 +2610,7 @@ export class IsometricGameEngine {
           promptText = `Switch Pet: ${PETS[this.selectedPet].name} (Tap / E)`;
           promptSubtext = PETS[this.selectedPet].role;
         } else if (item.type === 'dungeon_gate') {
-          promptText = 'Step North to Enter Dungeon (1-1)';
+          promptText = `Enter Dungeon 1-1 (${DIFFICULTIES[this.selectedDifficulty].name})`;
         } else if (item.type === 'chest') {
           promptText = `Open ${item.label || 'Weapon Chest'} (Tap / E)`;
         } else if (item.type === 'weapon_drop' && item.weaponId) {
@@ -2301,12 +2646,12 @@ export class IsometricGameEngine {
     }
 
     const activeWpn = this.getActiveWeapon();
-    const secondId =
-      p.weapons[p.activeWeaponIdx === 0 ? 1 : 0];
+    const secondId = p.weapons[p.activeWeaponIdx === 0 ? 1 : 0];
     const secondaryWpn = secondId ? WEAPONS[secondId] : null;
 
     this.onHudUpdate({
       inLivingRoom: this.dungeon.inLivingRoom,
+      difficulty: this.selectedDifficulty,
       hp: Math.ceil(p.hp),
       maxHp: p.maxHp,
       armor: Math.floor(p.armor),
@@ -2314,6 +2659,7 @@ export class IsometricGameEngine {
       mana: Math.floor(p.mana),
       maxMana: p.maxMana,
       gold: p.gold,
+      soulGemsEarned: this.soulGemsEarnedThisRun,
       floor: this.floorNum,
       maxFloors: MAX_FLOORS,
       level: p.level,
@@ -2359,14 +2705,14 @@ export class IsometricGameEngine {
   }
 
   // ============================================================================
-  // TOP-DOWN 2.5D PIXEL-ART RENDERER (Soul Knight Style)
+  // UPGRADED TOP-DOWN 2.5D PIXEL-ART RENDERER (Enhanced Floor, Walls, Props & Lighting)
   // ============================================================================
   private render() {
     const ctx = this.ctx;
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    ctx.fillStyle = '#07090e';
+    ctx.fillStyle = '#06080d';
     ctx.fillRect(0, 0, w, h);
 
     ctx.save();
@@ -2375,7 +2721,7 @@ export class IsometricGameEngine {
       Math.round(h / 2 - this.camY + this.shakeY)
     );
 
-    // 1. Render Floor Tiles & Doors
+    // 1. Render Multi-Layered Floor Tiles & Doors
     const minX = Math.max(
       0,
       Math.floor((this.camX - w / 2) / TILE_SIZE) - 2
@@ -2400,6 +2746,13 @@ export class IsometricGameEngine {
         if (tile.type === 'wall' || tile.type === 'pillar') continue;
 
         this.drawFloorTile25D(ctx, tile, x * TILE_SIZE, y * TILE_SIZE);
+
+        // Cast drop shadow on floor directly south of a wall!
+        const northTile = this.dungeon.tiles[y - 1]?.[x];
+        if (northTile && (northTile.type === 'wall' || northTile.type === 'pillar')) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.36)';
+          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, 10);
+        }
       }
     }
 
@@ -2442,6 +2795,15 @@ export class IsometricGameEngine {
       }
     }
 
+    // Destructible Props (Crates & Ancient Vases)
+    for (const prop of this.dungeon.props) {
+      if (prop.hp <= 0) continue;
+      renderList.push({
+        depth: prop.gy,
+        draw: () => this.drawProp(ctx, prop),
+      });
+    }
+
     // Ghost Trails
     for (const gt of this.ghostTrails) {
       renderList.push({
@@ -2450,7 +2812,7 @@ export class IsometricGameEngine {
       });
     }
 
-    // Interactables (Heroes in Living Room, Merchant, Statues, Chests, Dropped Weapons, Orbs)
+    // Interactables
     for (const item of this.dungeon.interactables) {
       if (item.opened && item.type !== 'chest') continue;
       renderList.push({
@@ -2540,13 +2902,17 @@ export class IsometricGameEngine {
     sx: number,
     sy: number
   ) {
-    let color = tile.variant % 2 === 0 ? '#1e293b' : '#182132';
+    let color = tile.variant % 2 === 0 ? '#1e293b' : '#172030';
     if (tile.type === 'floor_wood') {
       color = tile.variant % 2 === 0 ? '#451a03' : '#3b1502';
     } else if (tile.type === 'floor_carpet') {
-      color = '#881337';
+      color = '#7f1d1d';
     } else if (tile.type === 'floor_moss') {
-      color = '#142924';
+      color = '#132a25';
+    } else if (tile.type === 'floor_crystal') {
+      color = '#172554';
+    } else if (tile.type === 'spike_trap') {
+      color = '#1e293b';
     } else if (tile.type === 'door_open') {
       color = '#273549';
     } else if (tile.type === 'portal_pedestal') {
@@ -2556,25 +2922,79 @@ export class IsometricGameEngine {
     ctx.fillStyle = color;
     ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
 
+    // Inner stone slab bevel & mortar lines
     ctx.strokeStyle =
       tile.type === 'floor_carpet'
-        ? '#9f1239'
+        ? '#b91c1c'
         : tile.type === 'floor_wood'
         ? '#290f02'
         : '#0f172a';
     ctx.lineWidth = 1;
     ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
 
-    // Subtle pixel stone detail
-    if (tile.type === 'floor' && tile.variant === 0) {
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(sx + 8, sy + 8, 5, 3);
+    // Detailed textures per tile type
+    if (tile.type === 'floor') {
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      ctx.fillRect(sx + 2, sy + 2, TILE_SIZE - 4, 2);
+      if (tile.variant === 0) {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(sx + 9, sy + 10, 6, 3);
+        ctx.fillRect(sx + 28, sy + 30, 5, 3);
+      } else if (tile.variant === 2) {
+        // Subtle stone crack
+        ctx.strokeStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.moveTo(sx + 12, sy + 14);
+        ctx.lineTo(sx + 20, sy + 22);
+        ctx.lineTo(sx + 16, sy + 30);
+        ctx.stroke();
+      }
+    } else if (tile.type === 'floor_wood') {
+      ctx.fillStyle = '#290f02';
+      ctx.fillRect(sx, sy + 15, TILE_SIZE, 2);
+      ctx.fillRect(sx, sy + 31, TILE_SIZE, 2);
+    } else if (tile.type === 'floor_carpet') {
+      // Gold embroidered carpet trim
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
+      ctx.strokeRect(sx + 3, sy + 3, TILE_SIZE - 6, TILE_SIZE - 6);
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.16)';
+      ctx.fillRect(sx + 19, sy + 19, 8, 8);
     } else if (tile.type === 'floor_moss') {
       ctx.fillStyle = '#10b981';
-      ctx.fillRect(sx + 10, sy + 12, 6, 4);
-      ctx.fillRect(sx + 26, sy + 28, 5, 4);
+      ctx.fillRect(sx + 8, sy + 10, 7, 5);
+      ctx.fillRect(sx + 26, sy + 28, 6, 5);
+      ctx.fillStyle = '#34d399';
+      ctx.fillRect(sx + 10, sy + 11, 3, 2);
+    } else if (tile.type === 'floor_crystal') {
+      const pulse = 0.55 + Math.sin(this.globalTime * 4 + tile.gx) * 0.35;
+      ctx.fillStyle = `rgba(56, 189, 248, ${pulse})`;
+      ctx.fillRect(sx + 10, sy + 12, 8, 4);
+      ctx.fillRect(sx + 24, sy + 26, 10, 4);
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(sx + 12, sy + 13, 3, 2);
+    } else if (tile.type === 'spike_trap') {
+      // Floor Spike Trap Holes + Animated Iron Spikes
+      const spots = [
+        [12, 12],
+        [32, 12],
+        [22, 23],
+        [12, 34],
+        [32, 34],
+      ];
+      for (const [ox, oy] of spots) {
+        ctx.fillStyle = '#090b10';
+        ctx.fillRect(sx + ox - 3, sy + oy - 3, 6, 6);
+        if (tile.trapState === 'windup') {
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(sx + ox - 2, sy + oy - 2, 4, 4);
+        } else if (tile.trapState === 'active') {
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(sx + ox - 2, sy + oy - 9, 4, 10);
+          ctx.fillStyle = '#f43f5e';
+          ctx.fillRect(sx + ox - 2, sy + oy - 11, 4, 3);
+        }
+      }
     } else if (tile.type === 'door_open') {
-      // Recessed iron floor spikes when door is open
       ctx.fillStyle = '#475569';
       for (let i = 6; i < TILE_SIZE; i += 12) {
         ctx.fillRect(sx + i, sy + 20, 4, 4);
@@ -2607,7 +3027,6 @@ export class IsometricGameEngine {
     sy: number
   ) {
     if (tile.type === 'door_locked') {
-      // Raised Iron Spike Gate blocking corridor during combat!
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(sx, sy, TILE_SIZE, TILE_SIZE);
       for (let i = 5; i < TILE_SIZE; i += 10) {
@@ -2623,34 +3042,58 @@ export class IsometricGameEngine {
     const pad = isPillar ? 6 : 0;
     const x = sx + pad;
     const w = TILE_SIZE - pad * 2;
+    const topH = Math.round(TILE_SIZE * 0.62);
+    const faceY = sy - WALL_TOP_H + topH;
+    const faceH = TILE_SIZE - topH + WALL_TOP_H;
 
-    // 2.5D Top Cap
+    // 2.5D Top Stone Cap
     ctx.fillStyle = isPillar ? '#475569' : '#334155';
-    ctx.fillRect(x, sy - WALL_TOP_H, w, TILE_SIZE * 0.62);
+    ctx.fillRect(x, sy - WALL_TOP_H, w, topH);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(x + 2, sy - WALL_TOP_H + 2, w - 4, 3);
     ctx.strokeStyle = '#64748b';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, sy - WALL_TOP_H, w, TILE_SIZE * 0.62);
+    ctx.strokeRect(x, sy - WALL_TOP_H, w, topH);
 
-    // 2.5D Front Vertical Brick Face
-    ctx.fillStyle = '#1e293b';
+    // 2.5D Front Vertical Brick Face with mortar lines
+    ctx.fillStyle = isPillar ? '#1e293b' : '#1e293b';
+    ctx.fillRect(x, faceY, w, faceH);
+
+    // Brick course lines
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x, faceY + Math.floor(faceH * 0.5), w, 2);
+    ctx.fillRect(x + Math.floor(w * 0.5), faceY, 2, Math.floor(faceH * 0.5));
     ctx.fillRect(
-      x,
-      sy - WALL_TOP_H + TILE_SIZE * 0.62,
-      w,
-      TILE_SIZE * 0.38 + WALL_TOP_H
+      x + Math.floor(w * 0.28),
+      faceY + Math.floor(faceH * 0.5),
+      2,
+      Math.floor(faceH * 0.5)
     );
+
     ctx.strokeStyle = '#0f172a';
-    ctx.strokeRect(
-      x,
-      sy - WALL_TOP_H + TILE_SIZE * 0.62,
-      w,
-      TILE_SIZE * 0.38 + WALL_TOP_H
-    );
+    ctx.strokeRect(x, faceY, w, faceH);
 
     if (tile.hasTorch) {
       const flicker = Math.sin(this.globalTime * 16 + tile.gx * 3) * 2;
       const tx = sx + TILE_SIZE / 2;
       const ty = sy + 6;
+
+      // Warm radial torchlight halo
+      const grad = ctx.createRadialGradient(
+        tx,
+        ty - 3,
+        2,
+        tx,
+        ty - 3,
+        42 + flicker * 2
+      );
+      grad.addColorStop(0, 'rgba(251, 146, 60, 0.35)');
+      grad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(tx, ty - 3, 44, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.fillStyle = '#78350f';
       ctx.fillRect(tx - 2, ty, 4, 9);
       ctx.fillStyle = '#f97316';
@@ -2658,6 +3101,27 @@ export class IsometricGameEngine {
       ctx.fillStyle = '#fef08a';
       ctx.fillRect(tx - 2.5, ty - 5 + flicker * 0.4, 5, 5);
     }
+  }
+
+  private drawProp(ctx: CanvasRenderingContext2D, prop: DestructibleProp) {
+    const scr = this.gridToWorld(prop.gx, prop.gy, 0);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(scr.x, scr.y, 12, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const sprite =
+      prop.kind === 'crate' ? this.sprites.crate : this.sprites.vase;
+    ctx.save();
+    if (prop.hitFlash > 0) {
+      ctx.filter = 'brightness(2.5)';
+    }
+    ctx.drawImage(
+      sprite,
+      Math.round(scr.x - sprite.width / 2),
+      Math.round(scr.y - sprite.height + 5)
+    );
+    ctx.restore();
   }
 
   private drawTelegraph25D(ctx: CanvasRenderingContext2D, tel: TelegraphZone) {
@@ -2722,11 +3186,10 @@ export class IsometricGameEngine {
         : 0;
     const scr = this.gridToWorld(item.gx, item.gy, bob);
 
-    // Living Room Hero NPC Station
     if (item.type === 'lobby_hero' && item.heroId) {
       const isCurrent = item.heroId === this.selectedClass;
       ctx.fillStyle = isCurrent
-        ? 'rgba(245, 158, 11, 0.3)'
+        ? 'rgba(245, 158, 11, 0.32)'
         : 'rgba(15, 23, 42, 0.7)';
       ctx.beginPath();
       ctx.ellipse(scr.x, scr.y, 18, 10, 0, 0, Math.PI * 2);
@@ -2786,7 +3249,6 @@ export class IsometricGameEngine {
     }
 
     if (item.type === 'shop_item') {
-      // Draw Merchant standing above central shop item
       if (item.shopKind === 'potion') {
         const mSprite = this.sprites.merchant;
         ctx.drawImage(
@@ -2862,7 +3324,7 @@ export class IsometricGameEngine {
     const baseScr = this.gridToWorld(en.gx, en.gy, 0);
     const scr = this.gridToWorld(en.gx, en.gy, en.hopZ);
 
-    const shadowR = en.isBoss ? 22 : 14;
+    const shadowR = en.isBoss ? 24 : en.isElite ? 18 : 14;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
     ctx.beginPath();
     ctx.ellipse(
@@ -2876,15 +3338,40 @@ export class IsometricGameEngine {
     );
     ctx.fill();
 
+    // Elite / Enraged Boss Aura Ring under feet
+    if (en.isElite || en.enraged) {
+      ctx.save();
+      ctx.strokeStyle = en.enraged ? '#f43f5e' : '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.ellipse(
+        baseScr.x,
+        baseScr.y,
+        shadowR + 3,
+        (shadowR + 3) * 0.52,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const frameIdx = Math.floor(this.globalTime * 5 + en.id) % 2;
     const sprite =
       en.hitFlash > 0
         ? this.sprites.enemiesRedFlash[en.type][frameIdx]
         : this.sprites.enemies[en.type][frameIdx];
 
+    const eliteScale = en.isElite ? 1.22 : 1.0;
+
     ctx.save();
     ctx.translate(Math.round(scr.x), Math.round(scr.y));
-    ctx.scale(en.facing * en.squashX, en.squashY);
+    ctx.scale(
+      en.facing * en.squashX * eliteScale,
+      en.squashY * eliteScale
+    );
 
     ctx.drawImage(
       sprite,
@@ -2896,7 +3383,9 @@ export class IsometricGameEngine {
     if (en.alertTimer > 0) {
       const bounce = Math.abs(Math.sin(en.alertTimer * 18)) * 6;
       const ax = Math.round(scr.x);
-      const ay = Math.round(scr.y - sprite.height - 10 - bounce);
+      const ay = Math.round(
+        scr.y - sprite.height * eliteScale - 10 - bounce
+      );
       ctx.save();
       ctx.font = "800 18px 'JetBrains Mono', monospace";
       ctx.textAlign = 'center';
@@ -2909,15 +3398,15 @@ export class IsometricGameEngine {
     }
 
     if (en.hp < en.maxHp && !en.isBoss && en.type !== 'dummy') {
-      const bw = 34;
+      const bw = en.isElite ? 42 : 34;
       const bh = 5;
       const bx = Math.round(scr.x - bw / 2);
-      const by = Math.round(scr.y - sprite.height - 6);
+      const by = Math.round(scr.y - sprite.height * eliteScale - 6);
       ctx.fillStyle = '#090b10';
       ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
       ctx.fillStyle = '#334155';
       ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = '#f43f5e';
+      ctx.fillStyle = en.isElite ? '#f59e0b' : '#f43f5e';
       ctx.fillRect(bx, by, Math.max(2, (en.hp / en.maxHp) * bw), bh);
     }
   }
@@ -2932,7 +3421,6 @@ export class IsometricGameEngine {
     ctx.ellipse(baseScr.x, baseScr.y, 15, 7.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Statue Blessing / I-Frame ring under player
     ctx.strokeStyle =
       p.invulnTimer > 0
         ? '#38bdf8'
@@ -2967,7 +3455,6 @@ export class IsometricGameEngine {
     );
     ctx.restore();
 
-    // Render Equipped Weapon in Player's Hand rotated toward aimAngle!
     const wpn = this.getActiveWeapon();
     const wSprite = this.sprites.weapons[wpn.id];
     ctx.save();

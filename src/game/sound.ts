@@ -26,6 +26,10 @@ class SoundEngine {
     return this.muted;
   }
 
+  public setMuted(muted: boolean) {
+    this.muted = muted;
+  }
+
   // Tiếng bước chân "tạch tạch" 8-bit retro
   public playFootstep() {
     const ctx = this.ensureContext();

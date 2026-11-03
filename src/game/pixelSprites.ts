@@ -47,6 +47,8 @@ export interface SpriteBank {
   shrine: HTMLCanvasElement;
   statue: HTMLCanvasElement;
   merchant: HTMLCanvasElement;
+  crate: HTMLCanvasElement;
+  vase: HTMLCanvasElement;
 }
 
 let cachedBank: SpriteBank | null = null;
@@ -200,7 +202,56 @@ export function getSpriteBank(): SpriteBank {
     '................',
   ];
 
-  // PETS (Thú cưng đồng hành chuẩn Soul Knight)
+  // 4. CYBER ALCHEMIST (New 4th Class!)
+  const alchemistPalette: Record<string, string> = {
+    o: '#090b10',
+    a: '#0f766e',
+    A: '#14b8a6',
+    g: '#84cc16',
+    G: '#bef264',
+    b: '#38bdf8',
+    w: '#f8fafc',
+  };
+
+  const alchemistFrame0 = [
+    '......oooo......',
+    '.....oAAAAo.....',
+    '....oAAAAAAo....',
+    '...oAoooooooAo..',
+    '...oAoGGooGGoAo.',
+    '...oAoooooooAo..',
+    '....oaaGGGGaa...',
+    '...oAAAAAAAAAo..',
+    '..oAAgAAAAAgAAo.',
+    '..oAAgGGGGggAAo.',
+    '...oaaaaaaaaao..',
+    '....oaa..aao....',
+    '....oaa..aao....',
+    '....ogg..ggo....',
+    '....ooo..ooo....',
+    '................',
+  ];
+
+  const alchemistFrame1 = [
+    '.....oooo.......',
+    '....oAAAAo......',
+    '....oAAAAAAo....',
+    '...oAoooooooAo..',
+    '...oAoGGooGGoAo.',
+    '...oAoooooooAo..',
+    '....oaaGGGGaa...',
+    '...oAAAAAAAAAo..',
+    '..oAAgAAAAAgAAo.',
+    '..oAAgGGGGggAAo.',
+    '...oaaaaaaaaao..',
+    '...oaa....aao...',
+    '...oaa....aao...',
+    '..oggo....oggo..',
+    '..ooo......ooo..',
+    '................',
+  ];
+
+  // PETS
   const catPalette: Record<string, string> = {
     o: '#090b10',
     f: '#f59e0b',
@@ -281,7 +332,7 @@ export function getSpriteBank(): SpriteBank {
     '..oo....oo..',
   ];
 
-  // ENEMIES: SLIME, GOBLIN, GOLEM, WARDEN BOSS, TRAINING DUMMY
+  // ENEMIES: SLIME, GOBLIN, GOLEM, NECRO_MAGE, WARDEN BOSS, TRAINING DUMMY
   const slimePalette: Record<string, string> = {
     o: '#090b10',
     s: '#10b981',
@@ -408,6 +459,46 @@ export function getSpriteBank(): SpriteBank {
     '..oooo....oooo..',
   ];
 
+  // NEW ENEMY: SKELETON NECRO MAGE (Bắn 3 tia cầu ma thuật tím)
+  const necroPalette: Record<string, string> = {
+    o: '#090b10',
+    p: '#581c87',
+    P: '#9333ea',
+    b: '#e2e8f0',
+    c: '#38bdf8',
+    m: '#c084fc',
+  };
+  const necro0 = [
+    '.....oooooo.....',
+    '....opPPPPpo....',
+    '...opPbbbbPpo...',
+    '...opboocobpo.m.',
+    '...opbbbbbbpoomo',
+    '....opboobpo..o.',
+    '...opPPPPPPpo.o.',
+    '..opPPmPPmPPpoo.',
+    '..opPPPPPPPPpo..',
+    '...oppppppppo...',
+    '....oooooooo....',
+    '....obb..bbo....',
+    '....ooo..ooo....',
+  ];
+  const necro1 = [
+    '.....oooooo...m.',
+    '....opPPPPpo.omo',
+    '...opPbbbbPpo.o.',
+    '...opboocobpo.o.',
+    '...opbbbbbbpo.o.',
+    '....opboobpo..o.',
+    '...opPPPPPPpo...',
+    '..opPPmPPmPPpo..',
+    '..opPPPPPPPPpo..',
+    '...oppppppppo...',
+    '....oooooooo....',
+    '...obb....bbo...',
+    '...ooo....ooo...',
+  ];
+
   const bossPalette: Record<string, string> = {
     o: '#090b10',
     g: '#f59e0b',
@@ -479,7 +570,7 @@ export function getSpriteBank(): SpriteBank {
     '...oooooooo...',
   ];
 
-  // WEAPON SPRITES (Held in hand & dropped on floor)
+  // WEAPON SPRITES
   const weaponPalette: Record<string, string> = {
     o: '#090b10',
     s: '#e2e8f0',
@@ -562,7 +653,28 @@ export function getSpriteBank(): SpriteBank {
     '....ooo.....',
   ];
 
-  // INTERACTABLES
+  const excaliburGrid = [
+    '.........oooo',
+    '........oyyyo',
+    '.......oyyggo',
+    '..o...oyyggo.',
+    '.ogo.oyyggo..',
+    '..ogoyyggo...',
+    '..ooggggo....',
+    '.orgo.oo.....',
+    'oro..........',
+  ];
+
+  const frostLaserGrid = [
+    '..ooooooooooo',
+    '.ossbbbbbbbbo',
+    '.ossbbwwwwbbo',
+    '.odddbbbbdddo',
+    '..oddo..oooo.',
+    '..ooo........',
+  ];
+
+  // INTERACTABLES & DESTRUCTIBLE PROPS
   const chestPalette: Record<string, string> = {
     o: '#090b10',
     w: '#92400e',
@@ -593,6 +705,45 @@ export function getSpriteBank(): SpriteBank {
     '.ogwwwwwwgo.',
     '..oooooooo..',
     '............',
+  ];
+
+  // Wooden Crate & Ancient Ceramic Vase (Destructible Props!)
+  const cratePalette: Record<string, string> = {
+    o: '#090b10',
+    w: '#78350f',
+    W: '#b45309',
+    L: '#d97706',
+    m: '#64748b',
+  };
+  const crateGrid = [
+    '.oooooooooo.',
+    'omLLLLLLLLmo',
+    'oLWwwwwwwWLo',
+    'oLWwLLLLwWLo',
+    'oLWwLwwLwWLo',
+    'oLWwLLLLwWLo',
+    'oLWwwwwwwWLo',
+    'omwwwwwwwwmo',
+    '.oooooooooo.',
+  ];
+
+  const vasePalette: Record<string, string> = {
+    o: '#090b10',
+    b: '#0e7490',
+    B: '#06b6d4',
+    h: '#67e8f9',
+    g: '#fbbf24',
+  };
+  const vaseGrid = [
+    '...oooooo...',
+    '..ogBBBBgo..',
+    '...obbbbo...',
+    '..oBBhhBBo..',
+    '.oBBhBBBBBo.',
+    '.oggggggggo.',
+    '.oBBBBbbbbo.',
+    '..obbbbbbo..',
+    '...oooooo...',
   ];
 
   const potionGrid = [
@@ -730,6 +881,10 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(rogueFrame0, roguePalette, 3),
         createPixelSprite(rogueFrame1, roguePalette, 3),
       ],
+      alchemist: [
+        createPixelSprite(alchemistFrame0, alchemistPalette, 3),
+        createPixelSprite(alchemistFrame1, alchemistPalette, 3),
+      ],
     },
     heroesGhost: {
       knight: [
@@ -743,6 +898,10 @@ export function getSpriteBank(): SpriteBank {
       rogue: [
         createPixelSprite(rogueFrame0, roguePalette, 3, '#34d399'),
         createPixelSprite(rogueFrame1, roguePalette, 3, '#34d399'),
+      ],
+      alchemist: [
+        createPixelSprite(alchemistFrame0, alchemistPalette, 3, '#a3e635'),
+        createPixelSprite(alchemistFrame1, alchemistPalette, 3, '#a3e635'),
       ],
     },
     pets: {
@@ -772,6 +931,10 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(golem0, golemPalette, 3),
         createPixelSprite(golem1, golemPalette, 3),
       ],
+      necro_mage: [
+        createPixelSprite(necro0, necroPalette, 3),
+        createPixelSprite(necro1, necroPalette, 3),
+      ],
       warden_boss: [
         createPixelSprite(boss0, bossPalette, 3),
         createPixelSprite(boss1, bossPalette, 3),
@@ -794,6 +957,10 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(golem0, golemPalette, 3, '#ef4444'),
         createPixelSprite(golem1, golemPalette, 3, '#ef4444'),
       ],
+      necro_mage: [
+        createPixelSprite(necro0, necroPalette, 3, '#ef4444'),
+        createPixelSprite(necro1, necroPalette, 3, '#ef4444'),
+      ],
       warden_boss: [
         createPixelSprite(boss0, bossPalette, 3, '#ef4444'),
         createPixelSprite(boss1, bossPalette, 3, '#ef4444'),
@@ -811,6 +978,8 @@ export function getSpriteBank(): SpriteBank {
       plasma_rifle: createPixelSprite(plasmaGrid, weaponPalette, 2.5),
       thunder_staff: createPixelSprite(staffGrid, weaponPalette, 2.5),
       inferno_bow: createPixelSprite(bowGrid, weaponPalette, 2.5),
+      excalibur: createPixelSprite(excaliburGrid, weaponPalette, 2.5),
+      frost_laser: createPixelSprite(frostLaserGrid, weaponPalette, 2.5),
     },
     chestClosed: createPixelSprite(chestClosedGrid, chestPalette, 3),
     chestOpen: createPixelSprite(chestOpenGrid, chestPalette, 3),
@@ -821,6 +990,8 @@ export function getSpriteBank(): SpriteBank {
     shrine: createPixelSprite(shrineGrid, shrinePalette, 3),
     statue: createPixelSprite(statueGrid, statuePalette, 3),
     merchant: createPixelSprite(merchantGrid, merchantPalette, 3),
+    crate: createPixelSprite(crateGrid, cratePalette, 3),
+    vase: createPixelSprite(vaseGrid, vasePalette, 3),
   };
 
   return cachedBank;

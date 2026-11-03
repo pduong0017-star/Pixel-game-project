@@ -1,10 +1,11 @@
 import React from 'react';
+import { AvatarId } from '../game/types';
 
 export function ObsidianTitleLockup() {
   return (
     <svg
       viewBox="0 0 540 128"
-      className="w-full max-w-[440px] h-auto select-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.85)]"
+      className="w-full max-w-[420px] h-auto select-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.85)]"
       aria-label="Obsidian Descent: Soul Knight Edition"
     >
       <defs>
@@ -114,6 +115,116 @@ export function ObsidianTitleLockup() {
         strokeDasharray="6 4"
       />
       <rect x="266" y="117" width="8" height="6" fill="#38BDF8" />
+    </svg>
+  );
+}
+
+export function PixelAvatarGraphic({
+  avatarId,
+  className = 'w-9 h-9',
+}: {
+  avatarId: AvatarId;
+  className?: string;
+}) {
+  if (avatarId === 'knight_helm') {
+    return (
+      <svg viewBox="0 0 16 16" className={className} fill="none">
+        <rect width="16" height="16" rx="3" fill="#1E293B" />
+        <rect x="5" y="1" width="6" height="2" fill="#E11D48" />
+        <rect x="4" y="3" width="8" height="9" fill="#CBD5E1" />
+        <rect x="5" y="5" width="6" height="2" fill="#0F172A" />
+        <rect x="7" y="5" width="2" height="5" fill="#F59E0B" />
+        <rect x="3" y="12" width="10" height="3" fill="#F59E0B" />
+      </svg>
+    );
+  }
+  if (avatarId === 'pyro_hood') {
+    return (
+      <svg viewBox="0 0 16 16" className={className} fill="none">
+        <rect width="16" height="16" rx="3" fill="#1E293B" />
+        <rect x="3" y="2" width="10" height="11" fill="#C2410C" />
+        <rect x="5" y="4" width="6" height="6" fill="#090B10" />
+        <rect x="6" y="6" width="2" height="2" fill="#FDE047" />
+        <rect x="9" y="6" width="2" height="2" fill="#FDE047" />
+        <rect x="4" y="12" width="8" height="3" fill="#F59E0B" />
+      </svg>
+    );
+  }
+  if (avatarId === 'rogue_mask') {
+    return (
+      <svg viewBox="0 0 16 16" className={className} fill="none">
+        <rect width="16" height="16" rx="3" fill="#0F172A" />
+        <rect x="3" y="2" width="10" height="10" fill="#334155" />
+        <rect x="5" y="5" width="2" height="2" fill="#34D399" />
+        <rect x="9" y="5" width="2" height="2" fill="#34D399" />
+        <rect x="3" y="9" width="10" height="5" fill="#10B981" />
+      </svg>
+    );
+  }
+  if (avatarId === 'alchemist_visor') {
+    return (
+      <svg viewBox="0 0 16 16" className={className} fill="none">
+        <rect width="16" height="16" rx="3" fill="#042F2E" />
+        <rect x="3" y="2" width="10" height="11" fill="#14B8A6" />
+        <rect x="4" y="5" width="8" height="3" fill="#090B10" />
+        <rect x="5" y="6" width="2" height="1" fill="#BEF264" />
+        <rect x="9" y="6" width="2" height="1" fill="#BEF264" />
+        <rect x="5" y="10" width="6" height="4" fill="#84CC16" />
+      </svg>
+    );
+  }
+  if (avatarId === 'dragon_crest') {
+    return (
+      <svg viewBox="0 0 16 16" className={className} fill="none">
+        <rect width="16" height="16" rx="3" fill="#270915" />
+        <rect x="2" y="2" width="3" height="3" fill="#FDE047" />
+        <rect x="11" y="2" width="3" height="3" fill="#FDE047" />
+        <rect x="3" y="4" width="10" height="9" fill="#E11D48" />
+        <rect x="5" y="6" width="2" height="2" fill="#FEF08A" />
+        <rect x="9" y="6" width="2" height="2" fill="#FEF08A" />
+        <rect x="5" y="10" width="6" height="3" fill="#FB7185" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <rect width="16" height="16" rx="3" fill="#0C1928" />
+      <rect x="4" y="2" width="8" height="3" fill="#FDE047" />
+      <rect x="3" y="5" width="10" height="8" fill="#38BDF8" />
+      <rect x="5" y="7" width="2" height="2" fill="#090B10" />
+      <rect x="9" y="7" width="2" height="2" fill="#090B10" />
+    </svg>
+  );
+}
+
+export function SoulGemIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <polygon points="8,1 14,6 8,15 2,6" fill="#38BDF8" />
+      <polygon points="8,3 11.5,6 8,12.5 4.5,6" fill="#BAE6FD" />
+      <polygon points="8,4 9.5,6 8,9 6.5,6" fill="#FFFFFF" />
+    </svg>
+  );
+}
+
+export function ShopPixelIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <path d="M2 3H14L13 7H3L2 3Z" fill="#F59E0B" />
+      <rect x="3" y="7" width="10" height="7" fill="#334155" />
+      <rect x="6" y="9" width="4" height="5" fill="#FDE047" />
+    </svg>
+  );
+}
+
+export function SettingsPixelIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <path
+        d="M6 1H10V3L12 4L14 3L15 5L13 7V9L15 11L14 13L12 12L10 13V15H6V13L4 12L2 13L1 11L3 9V7L1 5L2 3L4 4L6 3V1Z"
+        fill="#94A3B8"
+      />
+      <circle cx="8" cy="8" r="3" fill="#0F172A" />
     </svg>
   );
 }
