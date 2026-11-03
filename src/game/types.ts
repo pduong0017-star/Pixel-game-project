@@ -96,9 +96,19 @@ export interface HeroClassConfig {
   skillName: string;
   skillDesc: string;
   skillCooldown: number;
+  ultName?: string;
+  ultDesc?: string;
+  ultCooldown?: number;
   accentColor: string;
   skins: Record<SkinTier, HeroSkinConfig>;
 }
+
+export type MusicStyle =
+  | 'heroic_minor'
+  | 'samurai_pentatonic'
+  | 'cyber_synth'
+  | 'boss_phrygian'
+  | 'arcade_major';
 
 export interface PetConfig {
   id: PetId;
@@ -253,6 +263,8 @@ export interface DungeonRoom {
   cleared: boolean;
   locked: boolean;
   visited: boolean;
+  wave?: number;
+  maxWaves?: number;
   doorTiles: { gx: number; gy: number }[];
 }
 
@@ -473,7 +485,11 @@ export interface HudSnapshot {
   statueBlessing: string | null;
   dashCooldownRatio: number;
   skillCooldownRatio: number;
+  ultCooldownRatio?: number;
   attackCooldownRatio: number;
+  comboCount?: number;
+  currentWave?: number;
+  maxWaves?: number;
   isInvulnerable: boolean;
   activeBoons: BoonOption[];
   bossActive: boolean;

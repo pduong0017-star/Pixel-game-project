@@ -28,7 +28,7 @@ import { IsometricGameEngine } from './game/GameEngine';
 import { DIFFICULTIES, HERO_CLASSES, PETS, WEAPONS } from './game/dungeonGen';
 import { I18N, LANG_OPTIONS } from './game/i18n';
 import { drawCustomizedHero, getSpriteBank } from './game/pixelSprites';
-import { sound } from './game/sound';
+import { MUSIC_SCALES, sound } from './game/sound';
 import {
   AVATAR_LIST,
   DEFAULT_PROFILE,
@@ -54,6 +54,7 @@ import {
   HornStyle,
   HudSnapshot,
   LanguageCode,
+  MusicStyle,
   PermanentUpgrades,
   PetId,
   PlayerProfile,
@@ -99,7 +100,11 @@ const INITIAL_HUD: HudSnapshot = {
   statueBlessing: null,
   dashCooldownRatio: 0,
   skillCooldownRatio: 0,
+  ultCooldownRatio: 0,
   attackCooldownRatio: 0,
+  comboCount: 0,
+  currentWave: 1,
+  maxWaves: 1,
   isInvulnerable: false,
   activeBoons: [],
   bossActive: false,
@@ -384,7 +389,9 @@ function SplashDioramaCanvas({
       }
 
       // Boss (Obsidian Warden) on Right
-      const bossSprite = bank.enemies.boss[frameIdx];
+      const bossSprite =
+        bank.enemies.warden_boss?.[frameIdx] ||
+        bank.enemies.warden_boss?.[0];
       if (bossSprite) {
         const bossBob = Math.abs(Math.sin(t * 3.5)) * 4;
         ctx.save();
@@ -834,10 +841,24 @@ export default function App() {
     | 'SETTINGS'
     | 'MOBILE_INSTALL'
     | 'RACE_STUDIO'
+    | 'MUSIC_STUDIO'
   >('NONE');
   const [shopTab, setShopTab] = useState<'ARMORY' | 'UPGRADES'>('ARMORY');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const { isInstallable, isInstalled, install } = usePWAInstall();
+
+  // 8-Bit Chiptune Music Studio State
+  const [musicStyle, setMusicStyle] = useState<MusicStyle>('epic_minor');
+  const [musicBpm, setMusicBpm] = useState<number>(138);
+  const [musicChannels, setMusicChannels] = useState({
+    lead: true,
+    arp: true,
+    bass: true,
+    drums: true,
+  });
+  const [generatedTrackLabel, setGeneratedTrackLabel] = useState<string>(
+    'Obsidian Default Theme'
+  );
 
   const [gachaState, setGachaState] = useState<'IDLE' | 'SHAKING' | 'REVEALED'>(
     'IDLE'
@@ -1639,6 +1660,19 @@ export default function App() {
                 )}
               </button>
 
+              {/* 8-Bit Music Studio Button */}
+              <button
+                onClick={() => {
+                  sound.playUiClick(true);
+                  setActiveModal('MUSIC_STUDIO');
+                }}
+                className="btn-3d btn-3d-purple px-2.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1 cursor-pointer"
+                title="8-Bit Chiptune Music Studio"
+              >
+                <span>🎵</span>
+                <span className="hidden md:inline">MUSIC</span>
+              </button>
+
               {/* Settings 3D Button */}
               <button
                 onClick={() => {
@@ -1954,15 +1988,33 @@ export default function App() {
                   </span>
                 </div>
 
-                {/* Active Skill Box */}
-                <div className="p-2 rounded-xl bg-[#111726] border border-amber-500/30">
-                  <div className="flex items-center gap-1.5 text-[11px] font-pixel text-amber-300 mb-0.5">
-                    <SkillStarIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{localizedHero.skillName}</span>
+                {/* Active Skill [Q] & Ultimate Awakening [F] Box */}
+                <div className="space-y-1.5">
+                  <div className="p-2 rounded-xl bg-[#111726] border border-amber-500/30">
+                    <div className="flex items-center justify-between text-[10px] font-pixel text-amber-300 mb-0.5">
+                      <span className="flex items-center gap-1 truncate">
+                        <SkillStarIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{localizedHero.skillName}</span>
+                      </span>
+                      <span className="text-[9px] text-slate-400 shrink-0">[Q]</span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">
+                      {localizedHero.skillDesc}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-slate-300 leading-snug">
-                    {localizedHero.skillDesc}
-                  </p>
+
+                  <div className="p-2 rounded-xl bg-[#111726] border border-purple-500/40">
+                    <div className="flex items-center justify-between text-[10px] font-pixel text-purple-300 mb-0.5">
+                      <span className="flex items-center gap-1 truncate">
+                        <span>★</span>
+                        <span className="truncate">{classCfg.ultName}</span>
+                      </span>
+                      <span className="text-[9px] text-amber-300 shrink-0">[F / ULT]</span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 leading-snug line-clamp-2">
+                      {classCfg.ultDesc}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -2834,22 +2886,33 @@ export default function App() {
                 </div>
               </div>
 
-              {/* 8-Bit Chiptune BGM Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800">
+              {/* 8-Bit Chiptune BGM Toggle & Music Studio Shortcut */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-[#111726] border border-slate-800 gap-2">
                 <div>
                   <div className="font-bold text-slate-200">{t.bgmSetting}</div>
                   <div className="text-[10px] text-slate-400">
                     {t.bgmSettingDesc}
                   </div>
                 </div>
-                <button
-                  onClick={handleToggleBgmMute}
-                  className={`btn-3d px-3.5 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer ${
-                    !settings.bgmMuted ? 'btn-3d-emerald' : 'btn-3d-slate'
-                  }`}
-                >
-                  {!settings.bgmMuted ? t.onLabel : t.offLabel}
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => {
+                      sound.playUiClick(true);
+                      setActiveModal('MUSIC_STUDIO');
+                    }}
+                    className="btn-3d btn-3d-purple px-2.5 py-1.5 rounded-lg font-pixel text-[9px] cursor-pointer"
+                  >
+                    🎵 STUDIO
+                  </button>
+                  <button
+                    onClick={handleToggleBgmMute}
+                    className={`btn-3d px-3 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer ${
+                      !settings.bgmMuted ? 'btn-3d-emerald' : 'btn-3d-slate'
+                    }`}
+                  >
+                    {!settings.bgmMuted ? t.onLabel : t.offLabel}
+                  </button>
+                </div>
               </div>
 
               {/* Web Audio SFX Toggle */}
@@ -3075,6 +3138,215 @@ export default function App() {
                   </div>
                 </div>
               </div>
+
+              {/* GitHub Export & Standalone Download Guide */}
+              <div className="p-3.5 rounded-xl bg-[#111726] border border-amber-500/40 text-left space-y-1.5">
+                <div className="font-pixel text-[10px] text-amber-300">
+                  📦 TRIỂN KHAI LÊN GITHUB & TẢI VỀ ĐIỆN THOẠI (100% TEXT-PURE)
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  1. Toàn bộ mã nguồn game (Đồ họa Pixel Canvas, Nhạc 8-Bit 4 kênh, Đa ngôn ngữ) đã được tối ưu 100% dạng Text UTF-8 (không chứa file nhị phân gây lỗi GitHub).
+                </p>
+                <p className="text-slate-300 leading-relaxed">
+                  2. Nhấn biểu tượng <span className="text-amber-300 font-bold">GitHub / Export</span> ở thanh công cụ phía trên cùng của AI Studio để đẩy thẳng lên kho lưu trữ GitHub của bạn, hoặc quét mã QR ở trên bằng camera điện thoại để cài đặt App PWA ngay lập tức!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 7: 8-BIT CHIPTUNE MUSIC STUDIO & .WAV SOUNDTRACK GENERATOR
+         ===================================================================== */}
+      {activeModal === 'MUSIC_STUDIO' && (
+        <div className="absolute inset-0 z-30 bg-[#06080d]/92 flex items-center justify-center p-3 sm:p-5">
+          <div className="animate-modal-pop w-full max-w-2xl max-h-[92vh] flex flex-col bg-[#090b10] border-2 border-purple-500 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <div>
+                <h2 className="font-pixel text-xs sm:text-sm text-amber-300">
+                  🎵 8-BIT CHIPTUNE MUSIC STUDIO
+                </h2>
+                <p className="text-xs font-mono-tabular text-slate-400 mt-1">
+                  4-Channel Polyphonic Web Audio Synthesizer & .WAV Exporter
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playUiClick(false);
+                  setActiveModal('NONE');
+                }}
+                className="btn-3d btn-3d-slate px-3 py-1 rounded-lg font-pixel text-[10px] cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 font-mono-tabular text-xs">
+              {/* Current Track Status Banner */}
+              <div className="p-3 rounded-xl bg-gradient-to-r from-purple-950/60 via-[#111726] to-sky-950/60 border border-purple-500/50 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-[10px] font-pixel text-purple-300">
+                    NOW PLAYING (4-CHANNEL SYNTH)
+                  </div>
+                  <div className="text-sm font-bold text-amber-300 mt-0.5">
+                    ♫ {generatedTrackLabel} · {musicBpm} BPM
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {(['lobby', 'dungeon', 'boss'] as const).map((tr) => (
+                    <button
+                      key={tr}
+                      onClick={() => {
+                        sound.playUiClick(true);
+                        sound.startBgm(tr);
+                        setGeneratedTrackLabel(`Preset: ${tr.toUpperCase()}`);
+                      }}
+                      className="btn-3d btn-3d-slate px-2.5 py-1.5 rounded-lg font-pixel text-[9px] uppercase cursor-pointer"
+                    >
+                      {tr}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 1. Musical Scale / Mood Selector */}
+              <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                  1. CHỌN ÂM GIAI & PHONG CÁCH (MUSICAL SCALE)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(Object.keys(MUSIC_SCALES) as MusicStyle[]).map((stKey) => {
+                    const sc = MUSIC_SCALES[stKey];
+                    const active = musicStyle === stKey;
+                    return (
+                      <button
+                        key={stKey}
+                        onClick={() => {
+                          sound.playUiClick(true);
+                          setMusicStyle(stKey);
+                          setMusicBpm(sc.defaultBpm);
+                        }}
+                        className={`p-2.5 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                          active
+                            ? 'bg-purple-950/50 border-amber-400 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                            : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="font-pixel text-[10px]">{sc.name}</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">
+                          Default Tempo: {sc.defaultBpm} BPM
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Tempo BPM Slider & 4-Channel Mixer */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-pixel text-[10px] text-amber-300">
+                      2. NHỊP ĐỘ (TEMPO)
+                    </span>
+                    <span className="font-bold text-sky-300">
+                      {musicBpm} BPM
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={95}
+                    max={185}
+                    step={5}
+                    value={musicBpm}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setMusicBpm(val);
+                      sound.setTempoBpm(val);
+                    }}
+                    className="w-full accent-amber-400 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>95 BPM (Chill)</span>
+                    <span>140 BPM</span>
+                    <span>185 BPM (Boss)</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#111726] border border-slate-800">
+                  <div className="font-pixel text-[10px] text-amber-300 mb-2">
+                    3. BÀN MIXER 4 KÊNH (4-CH MIXER)
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        ['lead', '🎹 Lead Mel'],
+                        ['arp', '✨ Chords Arp'],
+                        ['bass', '🎸 Sub Bass'],
+                        ['drums', '🥁 Drum Kit'],
+                      ] as const
+                    ).map(([chKey, label]) => {
+                      const on = musicChannels[chKey];
+                      return (
+                        <button
+                          key={chKey}
+                          onClick={() => {
+                            const nextVal = !on;
+                            sound.channelEnabled[chKey] = nextVal;
+                            setMusicChannels((prev) => ({
+                              ...prev,
+                              [chKey]: nextVal,
+                            }));
+                            sound.playUiClick(true);
+                          }}
+                          className={`py-1.5 px-2 rounded-lg font-pixel text-[9px] border cursor-pointer ${
+                            on
+                              ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                              : 'bg-slate-950 border-slate-800 text-slate-500'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Compose Procedural Track & Export .WAV Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                <button
+                  onClick={() => {
+                    sound.generateProceduralSong(musicStyle, musicBpm);
+                    setGeneratedTrackLabel(
+                      `${MUSIC_SCALES[musicStyle].name} #${Math.floor(
+                        100 + Math.random() * 899
+                      )}`
+                    );
+                  }}
+                  className="btn-3d btn-3d-amber flex-1 min-h-[48px] py-3 px-4 rounded-xl font-pixel text-[10px] sm:text-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>🎼 SÁNG TÁC NHẠC MỚI (GENERATE 8-BIT BGM)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    sound.playChing();
+                    const wavUrl = sound.exportCurrentTrackWavUrl();
+                    const a = document.createElement('a');
+                    a.href = wavUrl;
+                    a.download = `obsidian-soul-knights-${musicStyle}-${musicBpm}bpm.wav`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(wavUrl), 5000);
+                  }}
+                  className="btn-3d btn-3d-emerald min-h-[48px] py-3 px-4 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>⬇ TẢI FILE .WAV</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3248,11 +3520,11 @@ export default function App() {
               )}
             </div>
 
-            {/* Top-Right: Soul Knight Grid Room Minimap + Settings/Pause */}
+            {/* Top-Right: Soul Knight 3x3 Megamap + Wave & Combo Badges + Settings/Pause */}
             <div className="pointer-events-auto flex items-start gap-2">
               {!hud.inLivingRoom && (
                 <div className="bg-[#090b10]/92 border border-slate-800 rounded-xl p-2 shadow-lg">
-                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono-tabular text-slate-300 mb-1.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-mono-tabular text-slate-300 mb-1">
                     <span className="flex items-center gap-1 font-bold text-purple-300">
                       <StairsPixelIcon className="w-3.5 h-3.5" />
                       1-{hud.floor}
@@ -3267,16 +3539,16 @@ export default function App() {
                       }
                     >
                       {hud.roomLocked
-                        ? 'LOCKED'
+                        ? `WAVE ${hud.currentWave}/${hud.maxWaves}`
                         : hud.portalOpen
                         ? 'PORTAL'
                         : `${hud.enemiesRemaining} Foes`}
                     </span>
                   </div>
 
-                  {/* 3x2 Room Grid Minimap */}
-                  <div className="grid grid-cols-3 gap-1 w-[74px] h-[48px] p-1 bg-slate-950 rounded border border-slate-800">
-                    {[0, 1].map((gy) =>
+                  {/* 3x3 Room Grid Minimap (9 Rooms) */}
+                  <div className="grid grid-cols-3 gap-1 w-[78px] h-[68px] p-1 bg-slate-950 rounded border border-slate-800">
+                    {[0, 1, 2].map((gy) =>
                       [0, 1, 2].map((gx) => {
                         const rm = hud.minimapRooms.find(
                           (r) => r.gridX === gx && r.gridY === gy
@@ -3312,6 +3584,12 @@ export default function App() {
                       })
                     )}
                   </div>
+
+                  {hud.comboCount >= 2 && (
+                    <div className="mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400 text-amber-300 font-pixel text-[9px] text-center animate-pulse">
+                      🔥 COMBO x{hud.comboCount}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -3453,8 +3731,8 @@ export default function App() {
                   }}
                   className={`relative rounded-xl bg-[#090b10]/92 border border-slate-800 hover:border-amber-400 active:scale-95 flex flex-col items-center justify-center p-1.5 overflow-hidden transition-transform cursor-pointer ${
                     isLargeControls
-                      ? 'min-w-[62px] min-h-[62px]'
-                      : 'min-w-[54px] min-h-[54px]'
+                      ? 'min-w-[60px] min-h-[60px]'
+                      : 'min-w-[52px] min-h-[52px]'
                   }`}
                   aria-label="Cast Class Skill"
                 >
@@ -3469,6 +3747,33 @@ export default function App() {
                   <SkillStarIcon className="w-5 h-5 relative z-10" />
                   <span className="text-[10px] font-mono-tabular text-amber-300 font-bold mt-0.5 relative z-10 whitespace-nowrap shrink-0">
                     {t.skillLabel}
+                  </span>
+                </button>
+
+                {/* Ultimate Awakening Slot (3 / F) */}
+                <button
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    engineRef.current?.bufferAction('ultimate');
+                  }}
+                  className={`relative rounded-xl bg-[#090b10]/92 border-2 border-purple-500/80 hover:border-amber-300 active:scale-95 flex flex-col items-center justify-center p-1.5 overflow-hidden shadow-[0_0_14px_rgba(168,85,247,0.35)] transition-transform cursor-pointer ${
+                    isLargeControls
+                      ? 'min-w-[62px] min-h-[62px]'
+                      : 'min-w-[54px] min-h-[54px]'
+                  }`}
+                  aria-label="Cast Ultimate Awakening"
+                >
+                  {hud.ultCooldownRatio > 0 && (
+                    <div
+                      className="absolute inset-0 bg-slate-950/85 origin-bottom transition-transform duration-75"
+                      style={{
+                        transform: `scaleY(${hud.ultCooldownRatio})`,
+                      }}
+                    />
+                  )}
+                  <SparkleCrownIcon className="w-5 h-5 relative z-10" />
+                  <span className="text-[10px] font-mono-tabular text-purple-300 font-bold mt-0.5 relative z-10 whitespace-nowrap shrink-0">
+                    ULT [F]
                   </span>
                 </button>
 

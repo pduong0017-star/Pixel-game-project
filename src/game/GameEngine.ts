@@ -8,6 +8,7 @@ import {
   WEAPON_POOL,
   generateDungeonFloor,
   generateLivingRoom,
+  spawnWaveEnemiesForRoom,
 } from './dungeonGen';
 import {
   SpriteBank,
@@ -76,6 +77,7 @@ export class IsometricGameEngine {
   private floorNum: number = 1;
   private dungeon!: GeneratedFloor;
   private nextInteractId: number = 600;
+  private nextEnemySpawnId: number = 2000;
   private soulGemsEarnedThisRun: number = 0;
 
   // Portal state
@@ -115,7 +117,12 @@ export class IsometricGameEngine {
     ghostSpawnTimer: 0,
     invulnTimer: 0, // 0.5s I-frame on Dash
     skillCooldown: 0,
-    maxSkillCooldown: 5.2,
+    maxSkillCooldown: 4.5,
+    ultCooldown: 0,
+    maxUltCooldown: 10.0,
+    comboStep: 0,
+    comboCount: 0,
+    comboTimer: 0,
     moveSpeed: 5.5,
     critChance: 0.18,
     gold: 30,
@@ -157,6 +164,7 @@ export class IsometricGameEngine {
       | 'attack'
       | 'dash'
       | 'skill'
+      | 'ultimate'
       | 'potion'
       | 'interact'
       | 'switch_weapon'
@@ -353,6 +361,9 @@ export class IsometricGameEngine {
       } else if (code === 'Digit1' || code === 'KeyL' || code === 'KeyQ') {
         e.preventDefault();
         this.bufferAction('skill');
+      } else if (code === 'Digit3' || code === 'KeyF' || code === 'KeyU') {
+        e.preventDefault();
+        this.bufferAction('ultimate');
       } else if (code === 'Digit2' || code === 'KeyH') {
         e.preventDefault();
         this.bufferAction('potion');
@@ -439,6 +450,7 @@ export class IsometricGameEngine {
       | 'attack'
       | 'dash'
       | 'skill'
+      | 'ultimate'
       | 'potion'
       | 'interact'
       | 'switch_weapon'
@@ -485,6 +497,8 @@ export class IsometricGameEngine {
     this.player.damageMultiplier = bonusDmgMult;
     this.player.attackSpeedMultiplier = 1.0;
     this.player.maxSkillCooldown = cfg.skillCooldown;
+    this.player.maxUltCooldown = cfg.ultCooldown || 10.0;
+    this.player.ultCooldown = 0;
     this.player.gold = 30 + bonusGold;
 
     this.selectedSkinTier = this.profile.selectedSkins?.[cls] || 'default';
@@ -571,7 +585,12 @@ export class IsometricGameEngine {
       ghostSpawnTimer: 0,
       invulnTimer: 0,
       skillCooldown: 0,
-      maxSkillCooldown: 5.2,
+      maxSkillCooldown: 4.5,
+      ultCooldown: 0,
+      maxUltCooldown: 10.0,
+      comboStep: 0,
+      comboCount: 0,
+      comboTimer: 0,
       moveSpeed: 5.5,
       critChance: 0.18,
       gold: 30,
@@ -672,18 +691,30 @@ export class IsometricGameEngine {
   public applyBoon(boon: BoonOption) {
     this.player.activeBoons.push(boon);
     if (boon.id === 'vitality_surge') {
-      const bonusHp = Math.round(this.player.maxHp * 0.25);
+      const bonusHp = Math.round(this.player.maxHp * 0.3);
       this.player.maxHp += bonusHp;
       this.player.hp = Math.min(
         this.player.maxHp,
-        this.player.hp + Math.round(this.player.maxHp * 0.45)
+        this.player.hp + Math.round(this.player.maxHp * 0.5)
       );
     } else if (boon.id === 'blitz_reflex') {
-      this.player.attackSpeedMultiplier *= 1.3;
+      this.player.attackSpeedMultiplier *= 1.35;
       this.player.maxSkillCooldown *= 0.8;
     } else if (boon.id === 'executioner') {
-      this.player.damageMultiplier *= 1.3;
-      this.player.critChance = Math.min(0.88, this.player.critChance + 0.15);
+      this.player.damageMultiplier *= 1.35;
+      this.player.critChance = Math.min(0.92, this.player.critChance + 0.15);
+    } else if (boon.id === 'berserk_frenzy') {
+      this.player.moveSpeed *= 1.25;
+      this.player.attackSpeedMultiplier *= 1.25;
+      this.player.critChance = Math.min(0.92, this.player.critChance + 0.2);
+    } else if (boon.id === 'static_shield') {
+      this.player.maxArmor += 30;
+      this.player.armor += 30;
+    } else if (boon.id === 'ult_overcharge') {
+      this.player.maxSkillCooldown *= 0.65;
+      this.player.maxUltCooldown *= 0.65;
+      this.player.skillCooldown = 0;
+      this.player.ultCooldown = 0;
     }
 
     sound.playLevelUp();
@@ -1051,6 +1082,36 @@ export class IsometricGameEngine {
         (e) => e.roomId === curRoom.id
       );
       if (remaining.length === 0) {
+        if ((curRoom.wave || 1) < (curRoom.maxWaves || 1)) {
+          curRoom.wave = (curRoom.wave || 1) + 1;
+          sound.playWaveSpawn();
+          this.addShake(8.0);
+          this.addFloatingText(
+            p.gx,
+            p.gy,
+            34,
+            `⚠ WAVE ${curRoom.wave}/${curRoom.maxWaves} REINFORCEMENTS!`,
+            '#fb7185',
+            1.32
+          );
+          const nextWaveFoes = spawnWaveEnemiesForRoom(
+            curRoom,
+            this.floorNum,
+            this.selectedDifficulty,
+            this.dungeon.tiles,
+            curRoom.wave,
+            Date.now()
+          );
+          for (const foe of nextWaveFoes) {
+            foe.aggroed = true;
+            foe.alertTimer = 0.9;
+            foe.state = 'chase';
+            this.spawnParticles(foe.gx, foe.gy, 8, 18, '#a855f7', 3.8);
+            this.dungeon.enemies.push(foe);
+          }
+          return;
+        }
+
         curRoom.locked = false;
         curRoom.cleared = true;
         sound.playLevelUp();
@@ -1066,7 +1127,7 @@ export class IsometricGameEngine {
           );
         }
         const roomGems = Math.round(
-          10 * DIFFICULTIES[this.selectedDifficulty].gemMult
+          14 * DIFFICULTIES[this.selectedDifficulty].gemMult
         );
         this.soulGemsEarnedThisRun += roomGems;
         this.onEarnSoulGems?.(roomGems, 0, false);
@@ -1085,7 +1146,7 @@ export class IsometricGameEngine {
           gx: curRoom.cx,
           gy: curRoom.cy,
           opened: false,
-          value: 20 * this.floorNum,
+          value: 24 * this.floorNum,
           bobPhase: 0,
           label: 'Room Clear Chest',
         });
@@ -1099,9 +1160,18 @@ export class IsometricGameEngine {
     p.attackCooldown = Math.max(0, p.attackCooldown - dt);
     p.dashCooldown = Math.max(0, p.dashCooldown - dt);
     p.skillCooldown = Math.max(0, p.skillCooldown - dt);
+    p.ultCooldown = Math.max(0, p.ultCooldown - dt);
     p.invulnTimer = Math.max(0, p.invulnTimer - dt);
     p.hitFlash = Math.max(0, p.hitFlash - dt);
     p.swingTimer = Math.max(0, p.swingTimer - dt);
+
+    if (p.comboTimer > 0) {
+      p.comboTimer -= dt;
+      if (p.comboTimer <= 0) {
+        p.comboStep = 0;
+        p.comboCount = 0;
+      }
+    }
 
     // Passive Mana regeneration (+3.2 MP/s) so players never get stuck
     if (p.mana < p.maxMana) {
@@ -1179,6 +1249,9 @@ export class IsometricGameEngine {
       } else if (act === 'skill' && p.skillCooldown <= 0) {
         this.inputBuffer.action = null;
         this.performPlayerSkill();
+      } else if (act === 'ultimate' && p.ultCooldown <= 0) {
+        this.inputBuffer.action = null;
+        this.performPlayerUltimate();
       } else if (act === 'potion') {
         this.inputBuffer.action = null;
         this.usePotion();
@@ -1437,10 +1510,15 @@ export class IsometricGameEngine {
 
     const scaledDamage = Math.round(wpn.damage * p.damageMultiplier);
 
-    // 1. MELEE WEAPON (Alternating High-Speed Slash + 4 Melee Styles + Soul Knight Bullet Deflection!)
+    // 1. MELEE WEAPON (3-Hit Combo Finisher + Tightened Blade Range + Soul Knight Bullet Deflection!)
     if (wpn.type === 'melee') {
       const mStyle = wpn.meleeStyle || 'slash';
+      p.comboStep = p.comboTimer > 0 ? (p.comboStep + 1) % 3 : 0;
+      p.comboTimer = 1.45;
+      const isFinisher = p.comboStep === 2;
+
       const isHeavy =
+        isFinisher ||
         mStyle === 'spin' ||
         mStyle === 'smash' ||
         wpn.id === 'broadsword' ||
@@ -1455,54 +1533,68 @@ export class IsometricGameEngine {
       p.swingTimer = p.swingDuration;
 
       // Forward lunge micro-step on melee swing for responsive hack-and-slash feel
-      const lungeDist = mStyle === 'thrust' ? 0.34 : 0.18;
+      const lungeDist = isFinisher ? 0.36 : mStyle === 'thrust' ? 0.3 : 0.18;
       const lungeGx = p.gx + Math.cos(p.aimAngle) * lungeDist;
       const lungeGy = p.gy + Math.sin(p.aimAngle) * lungeDist;
       if (this.isWalkable(lungeGx, p.gy)) p.gx = lungeGx;
       if (this.isWalkable(p.gx, lungeGy)) p.gy = lungeGy;
 
-      let fanSpread = Math.PI * 0.92;
+      let fanSpread = Math.PI * 0.88;
       if (mStyle === 'spin' || mStyle === 'smash') {
         fanSpread = Math.PI * 2;
       } else if (mStyle === 'thrust') {
         fanSpread = Math.PI * 0.42;
-      } else if (wpn.id === 'void_scythe') {
-        fanSpread = Math.PI * 1.25;
+      } else if (wpn.id === 'void_scythe' || isFinisher) {
+        fanSpread = Math.PI * 1.18;
       } else if (wpn.id === 'excalibur' || wpn.id === 'blood_katana') {
-        fanSpread = Math.PI * 1.05;
+        fanSpread = Math.PI * 0.98;
       }
+
+      const comboMult = isFinisher ? 1.45 : p.comboStep === 1 ? 1.15 : 1.0;
+      const meleeDamage = Math.round(scaledDamage * comboMult);
 
       this.slashes.push({
         gx: p.gx,
         gy: p.gy,
         angle: p.aimAngle,
         arcSpread: fanSpread,
-        radius: wpn.range,
-        timer: 0.2,
-        maxTimer: 0.2,
-        color: wpn.color,
-        coreColor: wpn.coreColor,
+        radius: wpn.range * (isFinisher ? 1.15 : 1.0),
+        timer: isFinisher ? 0.24 : 0.18,
+        maxTimer: isFinisher ? 0.24 : 0.18,
+        color: isFinisher ? '#fde047' : wpn.color,
+        coreColor: isFinisher ? '#ffffff' : wpn.coreColor,
         swingParity: p.swingParity,
         meleeStyle: mStyle,
         weaponId: wpn.id,
       });
 
-      // Excalibur & Dragon Lance also fire piercing energy waves!
-      if (wpn.id === 'excalibur' || wpn.id === 'dragon_lance') {
+      // Excalibur, Dragon Lance, Sword Qi Wave Boon, or 3rd-Hit Combo Finisher fire a Sword Energy Wave!
+      if (
+        wpn.id === 'excalibur' ||
+        wpn.id === 'dragon_lance' ||
+        this.hasBoon('sword_qi_wave') ||
+        isFinisher
+      ) {
         this.spawnProjectile({
           fromPlayer: true,
-          gx: p.gx + Math.cos(p.aimAngle) * 0.55,
-          gy: p.gy + Math.sin(p.aimAngle) * 0.55,
-          vx: Math.cos(p.aimAngle) * (wpn.projectileSpeed || 15.5),
-          vy: Math.sin(p.aimAngle) * (wpn.projectileSpeed || 15.5),
+          gx: p.gx + Math.cos(p.aimAngle) * 0.5,
+          gy: p.gy + Math.sin(p.aimAngle) * 0.5,
+          vx: Math.cos(p.aimAngle) * (wpn.projectileSpeed || 14.5),
+          vy: Math.sin(p.aimAngle) * (wpn.projectileSpeed || 14.5),
           damage: Math.round(
-            scaledDamage * (wpn.id === 'excalibur' ? 0.85 : 0.65)
+            meleeDamage *
+              (wpn.id === 'excalibur'
+                ? 0.85
+                : this.hasBoon('sword_qi_wave')
+                ? 0.65
+                : 0.5)
           ),
-          radius: wpn.id === 'excalibur' ? 0.54 : 0.38,
-          maxLife: wpn.id === 'excalibur' ? 0.58 : 0.42,
-          color: wpn.color,
+          radius: wpn.id === 'excalibur' || isFinisher ? 0.48 : 0.36,
+          maxLife: wpn.id === 'excalibur' ? 0.5 : 0.36,
+          color: isFinisher ? '#fde047' : wpn.color,
           coreColor: wpn.coreColor,
           piercing: true,
+          explosive: this.hasBoon('explosive_rounds'),
         });
       }
 
@@ -1514,17 +1606,16 @@ export class IsometricGameEngine {
 
       for (const proj of this.projectiles) {
         if (!proj.active || proj.fromPlayer) continue;
-        if (Math.hypot(proj.gx - p.gx, proj.gy - p.gy) <= wpn.range + 0.55) {
+        if (Math.hypot(proj.gx - p.gx, proj.gy - p.gy) <= wpn.range + 0.45) {
           if (canReflect) {
-            // Reflect enemy bullet back at enemies with 140% speed & golden aura!
             proj.fromPlayer = true;
             proj.deflected = true;
-            const spd = Math.hypot(proj.vx, proj.vy) * 1.42;
+            const spd = Math.hypot(proj.vx, proj.vy) * 1.45;
             const reflectAng =
               p.aimAngle + (Math.random() - 0.5) * 0.14;
             proj.vx = Math.cos(reflectAng) * spd;
             proj.vy = Math.sin(reflectAng) * spd;
-            proj.damage = Math.max(proj.damage * 2.4, scaledDamage);
+            proj.damage = Math.max(proj.damage * 2.5, meleeDamage);
             proj.color = '#fde047';
             proj.coreColor = '#ffffff';
             proj.life = 1.35;
@@ -1533,7 +1624,6 @@ export class IsometricGameEngine {
             deflectedCount++;
             this.spawnParticles(proj.gx, proj.gy, 14, 10, '#fde047', 3.4);
           } else {
-            // Standard melee slices & destroys the bullet
             proj.active = false;
             p.mana = Math.min(p.maxMana, p.mana + 3);
             this.spawnParticles(proj.gx, proj.gy, 12, 6, '#fde047', 2.5);
@@ -1554,20 +1644,21 @@ export class IsometricGameEngine {
         );
       }
 
-      // Smash destructible crates & vases in slash radius
+      // Smash destructible crates & vases in tight slash radius
       for (const prop of this.dungeon.props) {
         if (prop.hp <= 0) continue;
-        if (Math.hypot(prop.gx - p.gx, prop.gy - p.gy) <= wpn.range + 0.4) {
-          this.damageProp(prop, scaledDamage);
+        if (Math.hypot(prop.gx - p.gx, prop.gy - p.gy) <= wpn.range + 0.3) {
+          this.damageProp(prop, meleeDamage);
         }
       }
 
       let hitAny = false;
+      const effectiveRange = wpn.range * (isFinisher ? 1.12 : 1.0);
       for (const en of [...this.dungeon.enemies]) {
         const dx = en.gx - p.gx;
         const dy = en.gy - p.gy;
         const dist = Math.hypot(dx, dy);
-        if (dist <= wpn.range + (en.isBoss ? 0.68 : 0.45)) {
+        if (dist <= effectiveRange + (en.isBoss ? 0.45 : 0.25)) {
           const dirX = dx / (dist || 1);
           const dirY = dy / (dist || 1);
           const dot =
@@ -1576,13 +1667,18 @@ export class IsometricGameEngine {
             mStyle === 'spin' || mStyle === 'smash'
               ? -1.0
               : mStyle === 'thrust'
-              ? 0.55
-              : 0.05;
-          if (dot >= minDot || dist < 1.35) {
-            this.damageEnemy(en, scaledDamage, dirX, dirY);
-            if (mStyle === 'smash' && !en.isBoss) {
+              ? 0.58
+              : 0.12;
+          if (dot >= minDot || dist < 0.92) {
+            this.damageEnemy(
+              en,
+              meleeDamage,
+              dirX * (isFinisher ? 1.45 : 1),
+              dirY * (isFinisher ? 1.45 : 1)
+            );
+            if ((mStyle === 'smash' || isFinisher) && !en.isBoss) {
               en.state = 'recover';
-              en.stateTimer = 0.9;
+              en.stateTimer = 0.85;
             }
             if (wpn.id === 'void_scythe') {
               p.mana = Math.min(p.maxMana, p.mana + 4);
@@ -1591,8 +1687,22 @@ export class IsometricGameEngine {
           }
         }
       }
-      if (hitAny || mStyle === 'smash') {
-        this.addShake(mStyle === 'smash' ? 6.5 : 4.2);
+      if (hitAny) {
+        p.comboCount++;
+        p.comboTimer = 2.4;
+        if (isFinisher) {
+          this.addFloatingText(
+            p.gx,
+            p.gy,
+            32,
+            `💥 COMBO FINISHER!`,
+            '#fde047',
+            1.24
+          );
+        }
+      }
+      if (hitAny || mStyle === 'smash' || isFinisher) {
+        this.addShake(mStyle === 'smash' || isFinisher ? 6.8 : 4.2);
       }
       return;
     }
@@ -1609,12 +1719,16 @@ export class IsometricGameEngine {
     else if (wpn.id === 'inferno_bow') sound.playGunshot('bow');
     else sound.playGunshot('pistol');
 
-    const count = wpn.projectiles;
+    const bonusProjectiles = this.hasBoon('multi_shot_storm') ? 2 : 0;
+    const count = wpn.projectiles + bonusProjectiles;
+    const totalSpread =
+      bonusProjectiles > 0 ? Math.max(0.26, wpn.spreadAngle + 0.16) : wpn.spreadAngle;
+
     for (let i = 0; i < count; i++) {
       const offset =
         count === 1
-          ? (Math.random() - 0.5) * wpn.spreadAngle
-          : (i / (count - 1) - 0.5) * wpn.spreadAngle;
+          ? (Math.random() - 0.5) * totalSpread
+          : (i / (count - 1) - 0.5) * totalSpread;
       const ang = p.aimAngle + offset;
 
       this.spawnProjectile({
@@ -1634,7 +1748,7 @@ export class IsometricGameEngine {
         color: wpn.color,
         coreColor: wpn.coreColor,
         piercing: wpn.piercing,
-        explosive: wpn.explosive,
+        explosive: Boolean(wpn.explosive || this.hasBoon('explosive_rounds')),
         chainLightning: wpn.chainLightning,
       });
     }
@@ -1851,6 +1965,201 @@ export class IsometricGameEngine {
       }
       this.spawnParticles(p.gx, p.gy, 10, 22, '#10b981', 4.2);
     }
+  }
+
+  // 2nd Active Skill: Class Ultimate Awakening (Phím F / U hoặc Nút ULT)
+  public performPlayerUltimate() {
+    const p = this.player;
+    if (p.ultCooldown > 0) return;
+    p.ultCooldown = p.maxUltCooldown;
+    p.invulnTimer = Math.max(p.invulnTimer, 1.4);
+    p.squashX = 1.48;
+    p.squashY = 0.62;
+    sound.playUltimateCast();
+    this.addShake(14.5);
+
+    const cfg = HERO_CLASSES[this.selectedClass];
+    this.addFloatingText(
+      p.gx,
+      p.gy,
+      38,
+      `★ ULTIMATE: ${cfg.ultName.toUpperCase()}! ★`,
+      '#fde047',
+      1.35
+    );
+
+    // Clear all enemy bullets on screen with golden sparks!
+    for (const proj of this.projectiles) {
+      if (!proj.fromPlayer && proj.active) {
+        proj.active = false;
+        this.spawnParticles(proj.gx, proj.gy, 10, 6, '#fde047', 2.5);
+      }
+    }
+
+    if (this.selectedClass === 'knight') {
+      // Heaven's Judgment: +40 Armor, +60 MP, 12 Golden Excalibur Energy Swords + AoE Smite
+      p.armor = Math.min(p.maxArmor, p.armor + 40);
+      p.mana = Math.min(p.maxMana, p.mana + 60);
+      this.slashes.push({
+        gx: p.gx,
+        gy: p.gy,
+        angle: 0,
+        arcSpread: Math.PI * 2,
+        radius: 4.5,
+        timer: 0.35,
+        maxTimer: 0.35,
+        color: '#fde047',
+        coreColor: '#ffffff',
+        meleeStyle: 'smash',
+      });
+      for (let i = 0; i < 12; i++) {
+        const ang = (i / 12) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 14.5,
+          vy: Math.sin(ang) * 14.5,
+          damage: Math.round(95 * p.damageMultiplier),
+          radius: 0.55,
+          maxLife: 0.85,
+          color: '#fde047',
+          coreColor: '#ffffff',
+          piercing: true,
+          explosive: true,
+        });
+      }
+    } else if (this.selectedClass === 'pyromancer') {
+      // Cataclysm Meteor Shower: +80 MP & 16 Explosive Solar Meteors
+      p.mana = Math.min(p.maxMana, p.mana + 80);
+      for (let i = 0; i < 16; i++) {
+        const ang = (i / 16) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 12.0,
+          vy: Math.sin(ang) * 12.0,
+          damage: Math.round(88 * p.damageMultiplier),
+          radius: 0.56,
+          maxLife: 0.95,
+          color: '#f97316',
+          coreColor: '#fef08a',
+          piercing: true,
+          explosive: true,
+        });
+      }
+    } else if (this.selectedClass === 'ranger') {
+      // Storm of a Thousand Arrows: 18 High-Speed Piercing Emerald Bolts + Reset Dash/Skill
+      p.dashCooldown = 0;
+      p.skillCooldown = 0;
+      for (let i = 0; i < 18; i++) {
+        const ang = p.aimAngle + ((i - 8.5) / 18) * Math.PI * 1.4;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 17.5,
+          vy: Math.sin(ang) * 17.5,
+          damage: Math.round(78 * p.damageMultiplier),
+          radius: 0.44,
+          maxLife: 0.8,
+          color: '#10b981',
+          coreColor: '#ffffff',
+          piercing: true,
+          chainLightning: true,
+        });
+      }
+    } else if (this.selectedClass === 'alchemist') {
+      // Omega Bio-Matrix: Full Shield Recharge + 14 Chain-Lightning Acid Orbs
+      p.armor = p.maxArmor;
+      p.hp = Math.min(p.maxHp, p.hp + 25);
+      for (let i = 0; i < 14; i++) {
+        const ang = (i / 14) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 11.5,
+          vy: Math.sin(ang) * 11.5,
+          damage: Math.round(84 * p.damageMultiplier),
+          radius: 0.52,
+          maxLife: 0.95,
+          color: '#84cc16',
+          coreColor: '#ecfccb',
+          piercing: true,
+          explosive: true,
+          chainLightning: true,
+        });
+      }
+    } else if (this.selectedClass === 'necromancer') {
+      // Army of the Dead: Drain 35 HP from room & unleash 16 Soul Reapers
+      p.hp = Math.min(p.maxHp, p.hp + 35);
+      p.mana = p.maxMana;
+      for (let i = 0; i < 16; i++) {
+        const ang = (i / 16) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 13.0,
+          vy: Math.sin(ang) * 13.0,
+          damage: Math.round(92 * p.damageMultiplier),
+          radius: 0.52,
+          maxLife: 0.95,
+          color: '#c084fc',
+          coreColor: '#38bdf8',
+          piercing: true,
+          chainLightning: true,
+        });
+      }
+    } else {
+      // Berserker: Asura God-Slayer Spin + 12 Blood Shockwaves + Heal 30 HP
+      p.hp = Math.min(p.maxHp, p.hp + 30);
+      this.slashes.push({
+        gx: p.gx,
+        gy: p.gy,
+        angle: p.aimAngle,
+        arcSpread: Math.PI * 2,
+        radius: 4.6,
+        timer: 0.36,
+        maxTimer: 0.36,
+        color: '#f43f5e',
+        coreColor: '#fde047',
+        meleeStyle: 'smash',
+      });
+      for (let i = 0; i < 12; i++) {
+        const ang = (i / 12) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 14.0,
+          vy: Math.sin(ang) * 14.0,
+          damage: Math.round(98 * p.damageMultiplier),
+          radius: 0.54,
+          maxLife: 0.85,
+          color: '#f43f5e',
+          coreColor: '#fde047',
+          piercing: true,
+          explosive: true,
+        });
+      }
+    }
+
+    // Also deal direct shockwave damage to all nearby enemies within 4.5 tiles
+    for (const en of [...this.dungeon.enemies]) {
+      const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+      if (d <= 4.6) {
+        this.damageEnemy(
+          en,
+          Math.round(110 * p.damageMultiplier),
+          (en.gx - p.gx) / (d || 1),
+          (en.gy - p.gy) / (d || 1)
+        );
+      }
+    }
+    this.spawnParticles(p.gx, p.gy, 12, 42, '#fde047', 6.0);
   }
 
   public usePotion() {
@@ -2172,6 +2481,25 @@ export class IsometricGameEngine {
       this.triggerChainLightning(en, Math.round(finalDmg * 0.65));
     }
 
+    if (isCrit && this.hasBoon('frost_nova_crit')) {
+      this.spawnParticles(en.gx, en.gy, 10, 18, '#38bdf8', 3.8);
+      for (const other of [...this.dungeon.enemies]) {
+        if (other.id === en.id || other.hp <= 0) continue;
+        const d = Math.hypot(other.gx - en.gx, other.gy - en.gy);
+        if (d <= 2.6) {
+          other.hp -= Math.round(finalDmg * 0.45);
+          other.hitFlash = 0.1;
+          if (!other.isBoss) {
+            other.state = 'recover';
+            other.stateTimer = 0.7;
+          }
+          if (other.hp <= 0 && other.type !== 'dummy') {
+            this.killEnemy(other);
+          }
+        }
+      }
+    }
+
     if (en.hp <= 0) {
       this.killEnemy(en);
     }
@@ -2213,6 +2541,8 @@ export class IsometricGameEngine {
     this.dungeon.enemies.splice(idx, 1);
 
     this.player.kills++;
+    this.player.comboCount++;
+    this.player.comboTimer = 2.8;
     this.hitstopTimer = en.isBoss ? 0.11 : 0.03;
     this.addShake(en.isBoss ? 12.0 : en.isElite ? 6.5 : 4.2);
 
@@ -2316,6 +2646,21 @@ export class IsometricGameEngine {
     this.addShake(11.5);
     this.spawnParticles(p.gx, p.gy, 12, 16, '#f43f5e', 3.8);
     this.addFloatingText(p.gx, p.gy, 26, `-${amount}`, '#f43f5e', 1.2);
+
+    if (this.hasBoon('static_shield')) {
+      this.spawnParticles(p.gx, p.gy, 12, 24, '#38bdf8', 4.5);
+      for (const en of [...this.dungeon.enemies]) {
+        const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+        if (d <= 4.5) {
+          this.damageEnemy(
+            en,
+            75,
+            (en.gx - p.gx) / (d || 1),
+            (en.gy - p.gy) / (d || 1)
+          );
+        }
+      }
+    }
 
     if (p.hp <= 0) {
       sound.playGameOver(false);
@@ -2888,7 +3233,11 @@ export class IsometricGameEngine {
       statueBlessing: p.statueBlessing,
       dashCooldownRatio: p.dashCooldown / p.maxDashCooldown,
       skillCooldownRatio: p.skillCooldown / p.maxSkillCooldown,
+      ultCooldownRatio: p.ultCooldown / p.maxUltCooldown,
       attackCooldownRatio: p.attackCooldown / p.maxAttackCooldown,
+      comboCount: p.comboCount,
+      currentWave: curRoom?.wave || 1,
+      maxWaves: curRoom?.maxWaves || 1,
       isInvulnerable: p.invulnTimer > 0,
       activeBoons: p.activeBoons,
       bossActive: Boolean(boss && boss.aggroed),
@@ -3778,10 +4127,16 @@ export class IsometricGameEngine {
     const scr = this.gridToWorld(sl.gx, sl.gy, 14);
     const prog = 1 - sl.timer / sl.maxTimer;
     const alpha = Math.max(0, 1 - prog * 0.82);
-    const rx = sl.radius * TILE_SIZE;
+    // Keep visual blade arc compact and crisp right in front of the hero
+    const isSkillSlash = sl.radius >= 3.2;
+    const rx = sl.radius * (isSkillSlash ? 34 : 25);
+    const fwdOffset = sl.arcSpread < Math.PI * 1.7 ? 10 : 0;
 
     ctx.save();
-    ctx.translate(scr.x, scr.y);
+    ctx.translate(
+      scr.x + Math.cos(sl.angle) * fwdOffset,
+      scr.y + Math.sin(sl.angle) * (fwdOffset * 0.65)
+    );
     ctx.globalAlpha = alpha;
 
     if (sl.meleeStyle === 'smash') {

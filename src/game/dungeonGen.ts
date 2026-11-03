@@ -24,7 +24,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     hpMult: 1.0,
     dmgMult: 1.0,
     speedMult: 1.0,
-    eliteChance: 0.14,
+    eliteChance: 0.18,
     gemMult: 1.0,
     accent: '#34d399',
   },
@@ -35,7 +35,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     hpMult: 1.45,
     dmgMult: 1.32,
     speedMult: 1.12,
-    eliteChance: 0.35,
+    eliteChance: 0.38,
     gemMult: 1.75,
     accent: '#f59e0b',
   },
@@ -46,7 +46,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyConfig> = {
     hpMult: 1.9,
     dmgMult: 1.6,
     speedMult: 1.24,
-    eliteChance: 0.55,
+    eliteChance: 0.58,
     gemMult: 2.5,
     accent: '#f43f5e',
   },
@@ -59,10 +59,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'slash',
     canDeflect: false,
-    damage: 36,
+    damage: 38,
     manaCost: 0,
-    cooldown: 0.28,
-    range: 2.55,
+    cooldown: 0.25,
+    range: 1.6,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -71,7 +71,8 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Common',
     rarityColor: '#cbd5e1',
     shopGemsCost: 80,
-    description: 'Chém quạt rộng đảo chiều liên hoàn (0 Mana). Phá hủy đạn địch & hồi +3 Mana.',
+    description:
+      'Chém cận chiến chuẩn xác liên hoàn 3 đòn (0 Mana). Phá đạn địch & hồi +3 Mana.',
   },
   twin_daggers: {
     id: 'twin_daggers',
@@ -79,10 +80,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'slash',
     canDeflect: false,
-    damage: 28,
+    damage: 30,
     manaCost: 0,
-    cooldown: 0.17,
-    range: 2.25,
+    cooldown: 0.15,
+    range: 1.4,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -91,7 +92,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Rare',
     rarityColor: '#38bdf8',
     shopGemsCost: 130,
-    description: 'Song đao chém kép tốc độ cực nhanh (0 Mana). Chém tan đạn địch.',
+    description: 'Song đao áp sát chém tốc độ cực nhanh (0 Mana). Chém tan đạn địch.',
   },
   blood_katana: {
     id: 'blood_katana',
@@ -99,10 +100,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'slash',
     canDeflect: true,
-    damage: 44,
+    damage: 46,
     manaCost: 0,
-    cooldown: 0.21,
-    range: 2.75,
+    cooldown: 0.19,
+    range: 1.72,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -111,7 +112,8 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Epic',
     rarityColor: '#a855f7',
     shopGemsCost: 210,
-    description: 'Chém rút kiếm siêu tốc (0 Mana). PHẢN ĐÒN ĐẠN bay ngược lại kẻ địch!',
+    description:
+      'Chém rút kiếm siêu tốc (0 Mana). PHẢN ĐÒN ĐẠN bay ngược lại kẻ địch!',
   },
   void_scythe: {
     id: 'void_scythe',
@@ -119,10 +121,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'slash',
     canDeflect: true,
-    damage: 54,
+    damage: 56,
     manaCost: 1,
-    cooldown: 0.31,
-    range: 3.15,
+    cooldown: 0.28,
+    range: 1.9,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -131,7 +133,8 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Legendary',
     rarityColor: '#f59e0b',
     shopGemsCost: 310,
-    description: 'Lưỡi hái tử thần quét góc rộng 220° (1 Mana). PHẢN ĐÒN ĐẠN & hút năng lượng.',
+    description:
+      'Lưỡi hái tử thần quét vòng cung (1 Mana). PHẢN ĐÒN ĐẠN & hút năng lượng.',
   },
   inferno_greataxe: {
     id: 'inferno_greataxe',
@@ -139,10 +142,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'spin',
     canDeflect: false,
-    damage: 52,
+    damage: 54,
     manaCost: 1,
-    cooldown: 0.36,
-    range: 2.9,
+    cooldown: 0.32,
+    range: 1.78,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -151,7 +154,8 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarity: 'Epic',
     rarityColor: '#a855f7',
     shopGemsCost: 230,
-    description: 'Xoay 360° cơn lốc lửa quét sạch mọi quái và đạn xung quanh (1 Mana).',
+    description:
+      'Xoay 360° cơn lốc lửa cận chiến quét sạch quái và đạn sát người (1 Mana).',
   },
   thunder_warhammer: {
     id: 'thunder_warhammer',
@@ -159,10 +163,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'smash',
     canDeflect: false,
-    damage: 62,
+    damage: 65,
     manaCost: 2,
-    cooldown: 0.42,
-    range: 3.0,
+    cooldown: 0.38,
+    range: 1.85,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 0,
@@ -172,7 +176,8 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#a855f7',
     chainLightning: true,
     shopGemsCost: 250,
-    description: 'Đập chấn động sấm sét diện rộng làm choáng quái & xóa đạn (2 Mana).',
+    description:
+      'Đập chấn địa sấm sét làm choáng quái xung quanh & xóa đạn (2 Mana).',
   },
   dragon_lance: {
     id: 'dragon_lance',
@@ -180,10 +185,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'thrust',
     canDeflect: false,
-    damage: 42,
+    damage: 45,
     manaCost: 0,
-    cooldown: 0.24,
-    range: 3.45,
+    cooldown: 0.22,
+    range: 2.15,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 15.5,
@@ -193,7 +198,7 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#38bdf8',
     piercing: true,
     shopGemsCost: 175,
-    description: 'Đâm xuyên phá tầm xa với mũi thương rồng lửa (0 Mana).',
+    description: 'Đâm xuyên phá chuẩn xác với mũi thương rồng lửa (0 Mana).',
   },
   excalibur: {
     id: 'excalibur',
@@ -201,10 +206,10 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     type: 'melee',
     meleeStyle: 'slash',
     canDeflect: true,
-    damage: 64,
+    damage: 66,
     manaCost: 2,
-    cooldown: 0.3,
-    range: 3.2,
+    cooldown: 0.27,
+    range: 1.9,
     projectiles: 1,
     spreadAngle: 0,
     projectileSpeed: 16.0,
@@ -214,15 +219,16 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     rarityColor: '#f59e0b',
     piercing: true,
     shopGemsCost: 360,
-    description: 'Thánh kiếm hoàng kim PHẢN ĐÒN ĐẠN kèm kiếm khí xuyên thấu (2 Mana).',
+    description:
+      'Thánh kiếm hoàng kim PHẢN ĐÒN ĐẠN kèm kiếm khí xuyên thấu (2 Mana).',
   },
   pioneer_pistol: {
     id: 'pioneer_pistol',
     name: 'Pioneer Pistol',
     type: 'gun',
-    damage: 21,
+    damage: 22,
     manaCost: 0,
-    cooldown: 0.22,
+    cooldown: 0.2,
     range: 9.8,
     projectiles: 1,
     spreadAngle: 0.03,
@@ -238,9 +244,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'splitter_shotgun',
     name: 'Splitter Shotgun',
     type: 'gun',
-    damage: 18,
+    damage: 19,
     manaCost: 2,
-    cooldown: 0.42,
+    cooldown: 0.38,
     range: 8.2,
     projectiles: 5,
     spreadAngle: 0.38,
@@ -256,9 +262,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'plasma_rifle',
     name: 'Blue Fire Plasma SMG',
     type: 'gun',
-    damage: 19,
+    damage: 20,
     manaCost: 1,
-    cooldown: 0.1,
+    cooldown: 0.09,
     range: 10.8,
     projectiles: 1,
     spreadAngle: 0.09,
@@ -274,9 +280,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'gatling_minigun',
     name: 'Vulcan Gatling Minigun',
     type: 'gun',
-    damage: 16,
+    damage: 17,
     manaCost: 2,
-    cooldown: 0.09,
+    cooldown: 0.085,
     range: 10.5,
     projectiles: 3,
     spreadAngle: 0.22,
@@ -292,9 +298,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'sniper_railgun',
     name: 'Hyperion Sniper Railgun',
     type: 'gun',
-    damage: 78,
+    damage: 82,
     manaCost: 3,
-    cooldown: 0.48,
+    cooldown: 0.45,
     range: 14.0,
     projectiles: 1,
     spreadAngle: 0,
@@ -306,15 +312,16 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     piercing: true,
     chainLightning: true,
     shopGemsCost: 350,
-    description: 'Súng bắn tỉa điện từ siêu tốc xuyên thấu mọi mục tiêu (3 Mana).',
+    description:
+      'Súng bắn tỉa điện từ siêu tốc xuyên thấu mọi mục tiêu (3 Mana).',
   },
   frost_laser: {
     id: 'frost_laser',
     name: 'Aurora Cryo Cannon',
     type: 'gun',
-    damage: 30,
+    damage: 32,
     manaCost: 2,
-    cooldown: 0.26,
+    cooldown: 0.24,
     range: 11.5,
     projectiles: 2,
     spreadAngle: 0.08,
@@ -331,9 +338,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'thunder_staff',
     name: 'Staff of Thunder',
     type: 'staff',
-    damage: 38,
+    damage: 40,
     manaCost: 3,
-    cooldown: 0.38,
+    cooldown: 0.35,
     range: 10.8,
     projectiles: 1,
     spreadAngle: 0.02,
@@ -350,9 +357,9 @@ export const WEAPONS: Record<WeaponId, WeaponConfig> = {
     id: 'inferno_bow',
     name: 'Flame Dragon Bow',
     type: 'bow',
-    damage: 52,
+    damage: 55,
     manaCost: 3,
-    cooldown: 0.4,
+    cooldown: 0.36,
     range: 12.0,
     projectiles: 1,
     spreadAngle: 0,
@@ -391,8 +398,8 @@ export const PETS: Record<PetId, PetConfig> = {
     id: 'cat',
     name: 'Chilly the Cat',
     role: 'Mèo Chiến Binh Cận Chiến',
-    damage: 16,
-    attackCooldown: 0.82,
+    damage: 18,
+    attackCooldown: 0.78,
     isRanged: false,
     projectileColor: '#fde047',
     accentColor: '#f59e0b',
@@ -401,8 +408,8 @@ export const PETS: Record<PetId, PetConfig> = {
     id: 'mini_slime',
     name: 'Bloop the Slime',
     role: 'Slime Băng Hộ Vệ',
-    damage: 18,
-    attackCooldown: 0.9,
+    damage: 20,
+    attackCooldown: 0.85,
     isRanged: false,
     projectileColor: '#38bdf8',
     accentColor: '#38bdf8',
@@ -411,8 +418,8 @@ export const PETS: Record<PetId, PetConfig> = {
     id: 'baby_dragon',
     name: 'Ignis Dragonling',
     role: 'Rồng Con Phun Cầu Lửa',
-    damage: 22,
-    attackCooldown: 0.95,
+    damage: 24,
+    attackCooldown: 0.88,
     isRanged: true,
     projectileColor: '#f43f5e',
     accentColor: '#f43f5e',
@@ -430,12 +437,15 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     maxArmor: 65,
     maxMana: 200,
     critChance: 0.18,
-    moveSpeed: 5.5,
+    moveSpeed: 5.6,
     starterWeaponId: 'broadsword',
     secondaryWeaponId: 'pioneer_pistol',
-    skillName: 'Superior Shockwave',
-    skillDesc: 'Phóng sóng chấn động hoàng kim, hồi +35 Mana và làm choáng quái.',
-    skillCooldown: 5.2,
+    skillName: 'Superior Shockwave (Q)',
+    skillDesc: 'Phóng sóng chấn động hoàng kim, hồi +35 Mana & làm choáng quái.',
+    skillCooldown: 4.5,
+    ultName: 'Excalibur Judgment (E)',
+    ultDesc: 'Triệu hồi 12 thanh Thánh Kiếm hoàng kim càn quét toàn bộ phòng & Bất Tử 2s!',
+    ultCooldown: 10.0,
     accentColor: '#f59e0b',
     skins: {
       default: {
@@ -478,12 +488,15 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     maxArmor: 45,
     maxMana: 260,
     critChance: 0.24,
-    moveSpeed: 5.6,
+    moveSpeed: 5.7,
     starterWeaponId: 'thunder_staff',
     secondaryWeaponId: 'pioneer_pistol',
-    skillName: 'Solar Cataclysm',
+    skillName: 'Solar Cataclysm (Q)',
     skillDesc: 'Phóng 8 cầu dung nham xuyên thấu ra mọi hướng và hồi +45 Mana.',
-    skillCooldown: 4.8,
+    skillCooldown: 4.2,
+    ultName: 'Meteor Apocalypse (E)',
+    ultDesc: 'Gọi mưa 16 thiên thạch hỏa ngục nổ tung toàn phòng & hồi đầy Mana!',
+    ultCooldown: 10.0,
     accentColor: '#f97316',
     skins: {
       default: {
@@ -526,12 +539,15 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     maxArmor: 45,
     maxMana: 200,
     critChance: 0.38,
-    moveSpeed: 6.3,
+    moveSpeed: 6.4,
     starterWeaponId: 'blood_katana',
     secondaryWeaponId: 'splitter_shotgun',
-    skillName: 'Phantom Blade Fan',
-    skillDesc: 'Phi 6 phi tiêu lục bảo xuyên thấu chí mạng và hồi ngay lượt Dash.',
-    skillCooldown: 4.0,
+    skillName: 'Phantom Blade Fan (Q)',
+    skillDesc: 'Phi 7 phi tiêu lục bảo xuyên thấu chí mạng và hồi ngay lượt Dash.',
+    skillCooldown: 3.6,
+    ultName: 'Shadow Clone Storm (E)',
+    ultDesc: 'Phóng cơn lốc 18 phi tiêu xoáy 360° & xóa toàn bộ đạn địch trong phòng!',
+    ultCooldown: 9.0,
     accentColor: '#10b981',
     skins: {
       default: {
@@ -577,9 +593,12 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     moveSpeed: 5.8,
     starterWeaponId: 'frost_laser',
     secondaryWeaponId: 'dragon_lance',
-    skillName: 'Alchemical Venom Nova',
+    skillName: 'Alchemical Venom Nova (Q)',
     skillDesc: 'Ném 6 bình độc sinh học nổ lan, hồi +15 Giáp & +35 Mana.',
-    skillCooldown: 4.6,
+    skillCooldown: 4.2,
+    ultName: 'Omega Bio-Laser Storm (E)',
+    ultDesc: 'Xả 14 tia laser băng-độc giật sét dây chuyền toàn phòng + hồi 25 HP!',
+    ultCooldown: 10.0,
     accentColor: '#14b8a6',
     skins: {
       default: {
@@ -625,9 +644,12 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     moveSpeed: 5.7,
     starterWeaponId: 'void_scythe',
     secondaryWeaponId: 'plasma_rifle',
-    skillName: 'Abyssal Soul Harvest',
+    skillName: 'Abyssal Soul Harvest (Q)',
     skillDesc: 'Phóng 10 hồn ma hư không tự săn mục tiêu, hút +15 HP & +40 Mana.',
-    skillCooldown: 4.5,
+    skillCooldown: 4.2,
+    ultName: 'Legion of the Dead (E)',
+    ultDesc: 'Bùng nổ 16 đầu lâu ma giới càn quét toàn phòng & hút +30 HP +60 Mana!',
+    ultCooldown: 10.0,
     accentColor: '#c084fc',
     skins: {
       default: {
@@ -670,12 +692,15 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
     maxArmor: 70,
     maxMana: 190,
     critChance: 0.32,
-    moveSpeed: 6.0,
+    moveSpeed: 6.1,
     starterWeaponId: 'excalibur',
     secondaryWeaponId: 'inferno_greataxe',
-    skillName: 'Ragnarok Blood Rage',
-    skillDesc: 'Giậm vỡ mặt đất tạo 3 vòng chém + phóng 6 kiếm khí lửa hủy diệt.',
-    skillCooldown: 4.4,
+    skillName: 'Ragnarok Blood Rage (Q)',
+    skillDesc: 'Giậm vỡ mặt đất tạo vòng chém + phóng 6 kiếm khí lửa hủy diệt.',
+    skillCooldown: 4.0,
+    ultName: 'Worldbreaker Cataclysm (E)',
+    ultDesc: 'Bộc phát Cuồng Nộ Chiến Thần: Chém chấn địa + 14 kiếm khí hủy diệt 360°!',
+    ultCooldown: 9.5,
     accentColor: '#ef4444',
     skins: {
       default: {
@@ -710,55 +735,116 @@ export const HERO_CLASSES: Record<HeroClassId, HeroClassConfig> = {
   },
 };
 
+// ============================================================================
+// EXPANDED 16-BOON SKILL BUFF POOL (Đa Dạng Hóa Kỹ Năng Khi Lên Cấp)
+// ============================================================================
 export const BOON_POOL: BoonOption[] = [
   {
     id: 'mirror_deflect',
     name: 'Mirror Blade (Deflect Bullets)',
     category: 'Soul Knight Mastery',
     description:
-      'Mọi đòn chém cận chiến sẽ PHẢN XẠ đạn của quái bay ngược lại với 200% Sát thương!',
+      'Mọi đòn chém cận chiến sẽ PHẢN XẠ đạn của quái bay ngược lại với 240% Sát thương!',
     accent: '#fde047',
   },
   {
+    id: 'sword_qi_wave',
+    name: 'Sword Qi Wave (Kiếm Khí)',
+    category: 'Blade Mastery',
+    description:
+      'Mọi vũ khí cận chiến phóng thêm 1 luồng Kiếm Khí tầm xa xuyên thấu mỗi khi vung kiếm!',
+    accent: '#38bdf8',
+  },
+  {
+    id: 'multi_shot_storm',
+    name: 'Twin Trigger (+Projectiles)',
+    category: 'Gunner Mastery',
+    description:
+      'Mọi loại Súng, Cung và Trượng bắn thêm +2 viên đạn/tia phép mỗi phát bắn!',
+    accent: '#f59e0b',
+  },
+  {
+    id: 'frost_nova_crit',
+    name: 'Glacial Shatter (Frost Nova)',
+    category: 'Elemental Buff',
+    description:
+      'Đòn Chí mạng phát nổ vòng băng giá làm chậm và gây thêm +35 sát thương lan.',
+    accent: '#22d3ee',
+  },
+  {
+    id: 'explosive_rounds',
+    name: 'Hellfire Warheads (Đạn Nổ)',
+    category: 'Artillery Buff',
+    description:
+      'Mọi viên đạn và kiếm khí của bạn đều phát nổ diện rộng khi trúng mục tiêu!',
+    accent: '#f97316',
+  },
+  {
+    id: 'berserk_frenzy',
+    name: 'Bloodlust Frenzy (+Speed & Crit)',
+    category: 'Berserk Buff',
+    description:
+      'Tăng +25% Tốc độ di chuyển, +25% Tốc đánh và +20% Tỷ lệ Chí mạng.',
+    accent: '#ef4444',
+  },
+  {
+    id: 'static_shield',
+    name: 'Thunder Aegis (+30 Shield)',
+    category: 'Defense Buff',
+    description:
+      'Tăng +30 Giáp tối đa. Khi bị đánh trúng sẽ phóng sét phản công toàn bộ quái gần đó!',
+    accent: '#60a5fa',
+  },
+  {
+    id: 'ult_overcharge',
+    name: 'Awakening Core (Giảm 35% CD Skill)',
+    category: 'Arcane Buff',
+    description:
+      'Giảm 35% thời gian hồi chiêu của cả Kỹ Năng (Q) và Tuyệt Kỹ Tối Thượng (E)!',
+    accent: '#c084fc',
+  },
+  {
     id: 'vitality_surge',
-    name: 'Titan Wine (+25% Max HP)',
+    name: 'Titan Wine (+30% Max HP)',
     category: 'Survival Buff',
-    description: 'Tăng +25% Máu tối đa và hồi ngay lập tức 45% HP.',
+    description: 'Tăng +30% Máu tối đa và hồi ngay lập tức 50% HP.',
     accent: '#4ade80',
   },
   {
     id: 'blitz_reflex',
-    name: 'Firing Rate & Slash Speed +30%',
+    name: 'Firing Rate & Slash Speed +35%',
     category: 'Offense Buff',
-    description: 'Tăng +30% Tốc độ bắn/chém và giảm 20% Hồi chiêu Kỹ năng.',
+    description: 'Tăng +35% Tốc độ bắn/chém và giảm 20% Hồi chiêu Kỹ năng.',
     accent: '#fde047',
   },
   {
     id: 'chain_arc',
     name: 'Laser & Lightning Bounce',
     category: 'Elemental Buff',
-    description: 'Mọi đòn đánh phóng tia sét dây chuyền sang quái lân cận (65% DMG).',
+    description:
+      'Mọi đòn đánh phóng tia sét dây chuyền sang 3 quái lân cận (70% DMG).',
     accent: '#38bdf8',
   },
   {
     id: 'vampiric_edge',
     name: 'Vampirism (Heal on Kill)',
     category: 'Sustenance Buff',
-    description: 'Hồi +10 HP và +18 Mana mỗi khi tiêu diệt kẻ địch.',
+    description: 'Hồi +12 HP và +22 Mana mỗi khi tiêu diệt kẻ địch.',
     accent: '#f43f5e',
   },
   {
     id: 'executioner',
-    name: 'Critical Pierce (+Damage)',
+    name: 'Critical Pierce (+35% DMG)',
     category: 'Offense Buff',
-    description: 'Tăng +30% Sát thương vũ khí và +15% Tỷ lệ Chí mạng.',
+    description: 'Tăng +35% Sát thương vũ khí và +15% Tỷ lệ Chí mạng.',
     accent: '#f59e0b',
   },
   {
     id: 'ember_nova',
     name: 'Flame Dash Nova',
     category: 'Tactical Buff',
-    description: 'Khi Lướt (Dash) tạo vòng lửa gây 50 sát thương lên quái xung quanh.',
+    description:
+      'Khi Lướt (Dash) tạo vòng lửa gây 65 sát thương và xóa đạn xung quanh.',
     accent: '#f97316',
   },
 ];
@@ -782,8 +868,8 @@ export interface GeneratedFloor {
 // 1. LIVING ROOM HUB GENERATOR
 // ============================================================================
 export function generateLivingRoom(): GeneratedFloor {
-  const width = 24;
-  const height = 18;
+  const width = 26;
+  const height = 20;
   const tiles: DungeonTile[][] = [];
 
   for (let y = 0; y < height; y++) {
@@ -803,12 +889,12 @@ export function generateLivingRoom(): GeneratedFloor {
 
   const rx = 3;
   const ry = 3;
-  const rw = 18;
-  const rh = 12;
+  const rw = 20;
+  const rh = 14;
 
   for (let y = ry; y < ry + rh; y++) {
     for (let x = rx; x < rx + rw; x++) {
-      const isCarpet = x >= 9 && x <= 14 && y >= 5 && y <= 12;
+      const isCarpet = x >= 9 && x <= 15 && y >= 5 && y <= 14;
       tiles[y][x].type = isCarpet ? 'floor_carpet' : 'floor_wood';
     }
   }
@@ -817,17 +903,17 @@ export function generateLivingRoom(): GeneratedFloor {
     for (let x = rx - 1; x <= rx + rw; x++) {
       if (tiles[y][x].type === 'void') {
         tiles[y][x].type = 'wall';
-        if (y === ry - 1 && (x === 6 || x === 11 || x === 17)) {
+        if (y === ry - 1 && (x === 6 || x === 12 || x === 18)) {
           tiles[y][x].hasTorch = true;
         }
       }
     }
   }
 
-  tiles[ry - 1][11].type = 'door_open';
   tiles[ry - 1][12].type = 'door_open';
-  tiles[ry][11].type = 'portal_pedestal';
+  tiles[ry - 1][13].type = 'door_open';
   tiles[ry][12].type = 'portal_pedestal';
+  tiles[ry][13].type = 'portal_pedestal';
 
   const livingRoom: DungeonRoom = {
     id: 1,
@@ -837,12 +923,14 @@ export function generateLivingRoom(): GeneratedFloor {
     y: ry,
     w: rw,
     h: rh,
-    cx: 11.5,
-    cy: 9,
+    cx: 12.5,
+    cy: 10,
     kind: 'LIVING_ROOM',
     cleared: true,
     locked: false,
     visited: true,
+    wave: 1,
+    maxWaves: 1,
     doorTiles: [],
   };
 
@@ -862,7 +950,7 @@ export function generateLivingRoom(): GeneratedFloor {
       id: 102,
       type: 'lobby_hero',
       gx: 5.5,
-      gy: 7.4,
+      gy: 7.8,
       opened: false,
       value: 0,
       bobPhase: 1,
@@ -873,7 +961,7 @@ export function generateLivingRoom(): GeneratedFloor {
       id: 103,
       type: 'lobby_hero',
       gx: 5.5,
-      gy: 9.6,
+      gy: 10.4,
       opened: false,
       value: 0,
       bobPhase: 2,
@@ -884,7 +972,7 @@ export function generateLivingRoom(): GeneratedFloor {
       id: 107,
       type: 'lobby_hero',
       gx: 5.5,
-      gy: 11.8,
+      gy: 13.0,
       opened: false,
       value: 0,
       bobPhase: 3,
@@ -894,7 +982,7 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 108,
       type: 'lobby_hero',
-      gx: 8.2,
+      gx: 8.4,
       gy: 5.2,
       opened: false,
       value: 0,
@@ -905,8 +993,8 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 109,
       type: 'lobby_hero',
-      gx: 8.2,
-      gy: 11.8,
+      gx: 8.4,
+      gy: 13.0,
       opened: false,
       value: 0,
       bobPhase: 5,
@@ -916,7 +1004,7 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 104,
       type: 'lobby_pet',
-      gx: 17.0,
+      gx: 19.0,
       gy: 6.2,
       opened: false,
       value: 0,
@@ -926,8 +1014,8 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 105,
       type: 'chest',
-      gx: 17.0,
-      gy: 12.2,
+      gx: 19.0,
+      gy: 13.2,
       opened: false,
       value: 0,
       bobPhase: 0,
@@ -936,7 +1024,7 @@ export function generateLivingRoom(): GeneratedFloor {
     {
       id: 106,
       type: 'dungeon_gate',
-      gx: 11.5,
+      gx: 12.5,
       gy: 3.8,
       opened: false,
       value: 0,
@@ -946,8 +1034,8 @@ export function generateLivingRoom(): GeneratedFloor {
   ];
 
   const props: DestructibleProp[] = [
-    { id: 1, roomId: 1, kind: 'crate', gx: 14.5, gy: 5.2, hp: 20, hitFlash: 0 },
-    { id: 2, roomId: 1, kind: 'vase', gx: 14.5, gy: 12.8, hp: 15, hitFlash: 0 },
+    { id: 1, roomId: 1, kind: 'crate', gx: 15.5, gy: 5.2, hp: 20, hitFlash: 0 },
+    { id: 2, roomId: 1, kind: 'vase', gx: 15.5, gy: 13.8, hp: 15, hitFlash: 0 },
   ];
 
   const enemies: Enemy[] = [
@@ -956,8 +1044,8 @@ export function generateLivingRoom(): GeneratedFloor {
       roomId: 1,
       type: 'dummy',
       name: 'Training Dummy',
-      gx: 17.0,
-      gy: 9.2,
+      gx: 19.0,
+      gy: 9.8,
       vx: 0,
       vy: 0,
       hp: 9999,
@@ -971,8 +1059,8 @@ export function generateLivingRoom(): GeneratedFloor {
       state: 'idle',
       stateTimer: 0,
       windupDuration: 1,
-      targetGx: 17.0,
-      targetGy: 9.2,
+      targetGx: 19.0,
+      targetGy: 9.8,
       facing: -1,
       hitFlash: 0,
       squashX: 1,
@@ -988,9 +1076,9 @@ export function generateLivingRoom(): GeneratedFloor {
     height,
     tiles,
     rooms: [livingRoom],
-    spawnGx: 11.5,
-    spawnGy: 9.5,
-    stairsGx: 11.5,
+    spawnGx: 12.5,
+    spawnGy: 10.5,
+    stairsGx: 12.5,
     stairsGy: 3.8,
     enemies,
     interactables,
@@ -999,15 +1087,258 @@ export function generateLivingRoom(): GeneratedFloor {
 }
 
 // ============================================================================
-// 2. SOUL KNIGHT MULTI-ROOM GRID DUNGEON GENERATOR
+// HELPER: CREATE ENEMY INSTANCE & SPAWN MULTI-WAVE HORDE FOR A ROOM
+// ============================================================================
+export function createDungeonEnemy(
+  id: number,
+  roomId: number,
+  type: EnemyType,
+  gx: number,
+  gy: number,
+  floorNum: number,
+  difficulty: DifficultyId,
+  forceElite: boolean = false
+): Enemy {
+  const diffCfg = DIFFICULTIES[difficulty];
+  const scaleHp = (1 + (floorNum - 1) * 0.25) * diffCfg.hpMult;
+  const scaleDmg = (1 + (floorNum - 1) * 0.16) * diffCfg.dmgMult;
+  const scaleSpd = diffCfg.speedMult;
+
+  const isElite =
+    type !== 'warden_boss' &&
+    type !== 'dummy' &&
+    (forceElite || Math.random() < diffCfg.eliteChance);
+  const eliteHpMult = isElite ? 1.55 : 1.0;
+  const eliteDmgMult = isElite ? 1.22 : 1.0;
+
+  if (type === 'slime') {
+    return {
+      id,
+      roomId,
+      type: 'slime',
+      name: isElite ? 'Elite King Slime' : 'Emerald Slime',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(44 * scaleHp * eliteHpMult),
+      maxHp: Math.round(44 * scaleHp * eliteHpMult),
+      damage: Math.round(11 * scaleDmg * eliteDmgMult),
+      speed: 3.4 * scaleSpd,
+      attackRange: 1.35,
+      detectRange: 11.0,
+      aggroed: true,
+      alertTimer: 0.7,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.42,
+      targetGx: gx,
+      targetGy: gy,
+      facing: 1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: Math.random() * 10,
+      isElite,
+    };
+  }
+  if (type === 'goblin') {
+    return {
+      id,
+      roomId,
+      type: 'goblin',
+      name: isElite ? 'Elite Goblin Sharpshooter' : 'Goblin Marksman',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(52 * scaleHp * eliteHpMult),
+      maxHp: Math.round(52 * scaleHp * eliteHpMult),
+      damage: Math.round(13 * scaleDmg * eliteDmgMult),
+      speed: 2.6 * scaleSpd,
+      attackRange: 7.2,
+      detectRange: 11.5,
+      aggroed: true,
+      alertTimer: 0.7,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.65,
+      targetGx: gx,
+      targetGy: gy,
+      facing: 1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: Math.random() * 10,
+      isElite,
+    };
+  }
+  if (type === 'necro_mage') {
+    return {
+      id,
+      roomId,
+      type: 'necro_mage',
+      name: isElite ? 'Arch-Lich Necromancer' : 'Skeleton Necro Mage',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(62 * scaleHp * eliteHpMult),
+      maxHp: Math.round(62 * scaleHp * eliteHpMult),
+      damage: Math.round(15 * scaleDmg * eliteDmgMult),
+      speed: 2.3 * scaleSpd,
+      attackRange: 7.8,
+      detectRange: 11.5,
+      aggroed: true,
+      alertTimer: 0.7,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.72,
+      targetGx: gx,
+      targetGy: gy,
+      facing: 1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: Math.random() * 10,
+      isElite,
+    };
+  }
+  if (type === 'golem') {
+    return {
+      id,
+      roomId,
+      type: 'golem',
+      name: isElite ? 'Elder Magma Titan' : 'Obsidian Golem',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(115 * scaleHp * eliteHpMult),
+      maxHp: Math.round(115 * scaleHp * eliteHpMult),
+      damage: Math.round(19 * scaleDmg * eliteDmgMult),
+      speed: 2.05 * scaleSpd,
+      attackRange: 2.2,
+      detectRange: 11.0,
+      aggroed: true,
+      alertTimer: 0.7,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.78,
+      targetGx: gx,
+      targetGy: gy,
+      facing: 1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: Math.random() * 10,
+      isElite,
+    };
+  }
+  return {
+    id,
+    roomId,
+    type: 'warden_boss',
+    name:
+      floorNum >= 3 ? 'Malakor, Abyssal Sovereign' : 'Vorgath, Dungeon Warden',
+    gx,
+    gy,
+    vx: 0,
+    vy: 0,
+    hp: Math.round(420 * scaleHp),
+    maxHp: Math.round(420 * scaleHp),
+    damage: Math.round(23 * scaleDmg),
+    speed: 2.6 * scaleSpd,
+    attackRange: 4.0,
+    detectRange: 14.0,
+    aggroed: true,
+    alertTimer: 0.9,
+    state: 'chase',
+    stateTimer: 0,
+    windupDuration: 0.7,
+    targetGx: gx,
+    targetGy: gy,
+    facing: -1,
+    hitFlash: 0,
+    squashX: 1,
+    squashY: 1,
+    hopZ: 0,
+    animPhase: 0,
+    isBoss: true,
+    enraged: false,
+  };
+}
+
+export function spawnWaveEnemiesForRoom(
+  rm: DungeonRoom,
+  floorNum: number,
+  difficulty: DifficultyId,
+  tiles: DungeonTile[][],
+  baseEnemyId: number,
+  waveNum: number
+): Enemy[] {
+  const spawned: Enemy[] = [];
+  // 7 to 11 enemies per wave!
+  const baseCount =
+    7 +
+    floorNum +
+    (waveNum > 1 ? 2 : 0) +
+    (difficulty === 'badass' ? 2 : difficulty === 'hell' ? 4 : 0);
+
+  let nextId = baseEnemyId;
+  for (let i = 0; i < baseCount; i++) {
+    let ex = rm.cx;
+    let ey = rm.cy;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candX = rm.x + 2.2 + Math.random() * (rm.w - 4.4);
+      const candY = rm.y + 2.2 + Math.random() * (rm.h - 4.4);
+      const tType = tiles[Math.floor(candY)]?.[Math.floor(candX)]?.type;
+      if (tType && tType !== 'pillar' && tType !== 'spike_trap' && tType !== 'wall') {
+        ex = candX;
+        ey = candY;
+        break;
+      }
+    }
+
+    let type: EnemyType = 'slime';
+    if (i === baseCount - 1 || (waveNum >= 2 && i === 0)) {
+      type = 'golem';
+    } else if (i % 3 === 2) {
+      type = 'necro_mage';
+    } else if (i % 2 === 1) {
+      type = 'goblin';
+    }
+
+    const forceElite = waveNum >= 2 && i < 2;
+    spawned.push(
+      createDungeonEnemy(
+        nextId++,
+        rm.id,
+        type,
+        ex,
+        ey,
+        floorNum,
+        difficulty,
+        forceElite
+      )
+    );
+  }
+  return spawned;
+}
+
+// ============================================================================
+// 2. EXPANDED 3x3 (9-ROOM) SPRAWLING DUNGEON GENERATOR WITH MULTI-WAVE ARENAS
 // ============================================================================
 export function generateDungeonFloor(
   floorNum: number,
   difficulty: DifficultyId = 'normal'
 ): GeneratedFloor {
-  const diffCfg = DIFFICULTIES[difficulty];
-  const width = 62;
-  const height = 46;
+  const width = 92;
+  const height = 74;
 
   const tiles: DungeonTile[][] = [];
   for (let y = 0; y < height; y++) {
@@ -1027,6 +1358,7 @@ export function generateDungeonFloor(
     tiles.push(row);
   }
 
+  // 3x3 Grid of 9 Spacious Rooms (5 Combat Arenas, 1 Start, 1 Chest, 1 Shop/Statue, 1 Boss Colosseum)
   const roomDefs: {
     id: number;
     gridX: number;
@@ -1037,24 +1369,40 @@ export function generateDungeonFloor(
     { id: 2, gridX: 1, gridY: 1, kind: 'COMBAT_ROOM' },
     { id: 3, gridX: 1, gridY: 0, kind: 'COMBAT_ROOM' },
     { id: 4, gridX: 0, gridY: 0, kind: 'CHEST_ROOM' },
+    { id: 5, gridX: 1, gridY: 2, kind: 'COMBAT_ROOM' },
     {
-      id: 5,
-      gridX: 2,
-      gridY: 0,
+      id: 6,
+      gridX: 0,
+      gridY: 2,
       kind: floorNum % 2 === 1 ? 'SHOP_ROOM' : 'STATUE_ROOM',
     },
-    { id: 6, gridX: 2, gridY: 1, kind: 'BOSS_ROOM' },
+    { id: 7, gridX: 2, gridY: 0, kind: 'COMBAT_ROOM' },
+    { id: 8, gridX: 2, gridY: 2, kind: 'COMBAT_ROOM' },
+    { id: 9, gridX: 2, gridY: 1, kind: 'BOSS_ROOM' },
   ];
 
   const rooms: DungeonRoom[] = [];
-  const cellW = 19;
-  const cellH = 19;
+  const cellW = 27;
+  const cellH = 22;
+
+  const defaultMaxWaves =
+    floorNum >= 2 || difficulty !== 'normal' ? 3 : 2;
 
   for (const def of roomDefs) {
-    const rw = def.kind === 'BOSS_ROOM' ? 15 : def.kind === 'COMBAT_ROOM' ? 13 : 11;
-    const rh = def.kind === 'BOSS_ROOM' ? 13 : def.kind === 'COMBAT_ROOM' ? 11 : 9;
-    const cx = 10 + def.gridX * cellW;
-    const cy = 11 + def.gridY * cellH;
+    const rw =
+      def.kind === 'BOSS_ROOM'
+        ? 19
+        : def.kind === 'COMBAT_ROOM'
+        ? 17
+        : 13;
+    const rh =
+      def.kind === 'BOSS_ROOM'
+        ? 17
+        : def.kind === 'COMBAT_ROOM'
+        ? 15
+        : 11;
+    const cx = 16 + def.gridX * cellW;
+    const cy = 14 + def.gridY * cellH;
     const rx = Math.floor(cx - rw / 2);
     const ry = Math.floor(cy - rh / 2);
 
@@ -1078,6 +1426,8 @@ export function generateDungeonFloor(
       cleared: isSafeRoom,
       locked: false,
       visited: def.kind === 'START_ROOM',
+      wave: 1,
+      maxWaves: def.kind === 'COMBAT_ROOM' ? defaultMaxWaves : 1,
       doorTiles: [],
     });
   }
@@ -1091,7 +1441,7 @@ export function generateDungeonFloor(
     if (x <= 1 || y <= 1 || x >= width - 2 || y >= height - 2) return;
     if (rm && roomKind) {
       const distCenter = Math.max(Math.abs(x - rm.cx), Math.abs(y - rm.cy));
-      if (roomKind === 'BOSS_ROOM' && distCenter <= 3.5) {
+      if (roomKind === 'BOSS_ROOM' && distCenter <= 4.5) {
         tiles[y][x].type = 'floor_carpet';
         return;
       }
@@ -1099,7 +1449,7 @@ export function generateDungeonFloor(
         (roomKind === 'SHOP_ROOM' ||
           roomKind === 'CHEST_ROOM' ||
           roomKind === 'STATUE_ROOM') &&
-        distCenter <= 2.5
+        distCenter <= 3.0
       ) {
         tiles[y][x].type = 'floor_carpet';
         return;
@@ -1123,20 +1473,21 @@ export function generateDungeonFloor(
     }
 
     if (rm.kind === 'COMBAT_ROOM') {
-      tiles[rm.y + 2][rm.x + 3].type = 'pillar';
-      tiles[rm.y + 2][rm.x + rm.w - 4].type = 'pillar';
-      tiles[rm.y + rm.h - 3][rm.x + 3].type = 'pillar';
-      tiles[rm.y + rm.h - 3][rm.x + rm.w - 4].type = 'pillar';
+      tiles[rm.y + 3][rm.x + 4].type = 'pillar';
+      tiles[rm.y + 3][rm.x + rm.w - 5].type = 'pillar';
+      tiles[rm.y + rm.h - 4][rm.x + 4].type = 'pillar';
+      tiles[rm.y + rm.h - 4][rm.x + rm.w - 5].type = 'pillar';
 
-      tiles[Math.floor(rm.cy)][Math.floor(rm.cx) - 2].type = 'spike_trap';
-      tiles[Math.floor(rm.cy)][Math.floor(rm.cx) + 2].type = 'spike_trap';
+      tiles[Math.floor(rm.cy)][Math.floor(rm.cx) - 3].type = 'spike_trap';
+      tiles[Math.floor(rm.cy)][Math.floor(rm.cx) + 3].type = 'spike_trap';
 
       const propCoords: [number, number, 'crate' | 'vase'][] = [
-        [rm.x + 1.5, rm.y + 1.5, 'crate'],
-        [rm.x + rm.w - 1.5, rm.y + 1.5, 'vase'],
-        [rm.x + 1.5, rm.y + rm.h - 1.5, 'vase'],
-        [rm.x + rm.w - 1.5, rm.y + rm.h - 1.5, 'crate'],
-        [rm.cx, rm.y + 1.6, 'crate'],
+        [rm.x + 1.8, rm.y + 1.8, 'crate'],
+        [rm.x + rm.w - 1.8, rm.y + 1.8, 'vase'],
+        [rm.x + 1.8, rm.y + rm.h - 1.8, 'vase'],
+        [rm.x + rm.w - 1.8, rm.y + rm.h - 1.8, 'crate'],
+        [rm.cx, rm.y + 1.8, 'crate'],
+        [rm.cx, rm.y + rm.h - 1.8, 'vase'],
       ];
       for (const [px, py, pkind] of propCoords) {
         props.push({
@@ -1150,18 +1501,18 @@ export function generateDungeonFloor(
         });
       }
     } else if (rm.kind === 'BOSS_ROOM') {
-      tiles[rm.y + 2][rm.x + 2].type = 'pillar';
-      tiles[rm.y + 2][rm.x + rm.w - 3].type = 'pillar';
-      tiles[rm.y + rm.h - 3][rm.x + 2].type = 'pillar';
-      tiles[rm.y + rm.h - 3][rm.x + rm.w - 3].type = 'pillar';
+      tiles[rm.y + 3][rm.x + 3].type = 'pillar';
+      tiles[rm.y + 3][rm.x + rm.w - 4].type = 'pillar';
+      tiles[rm.y + rm.h - 4][rm.x + 3].type = 'pillar';
+      tiles[rm.y + rm.h - 4][rm.x + rm.w - 4].type = 'pillar';
 
       props.push(
         {
           id: nextPropId++,
           roomId: rm.id,
           kind: 'vase',
-          gx: rm.x + 1.5,
-          gy: rm.cy - 3,
+          gx: rm.x + 1.8,
+          gy: rm.cy - 4,
           hp: 18,
           hitFlash: 0,
         },
@@ -1169,8 +1520,8 @@ export function generateDungeonFloor(
           id: nextPropId++,
           roomId: rm.id,
           kind: 'vase',
-          gx: rm.x + 1.5,
-          gy: rm.cy + 3,
+          gx: rm.x + 1.8,
+          gy: rm.cy + 4,
           hp: 18,
           hitFlash: 0,
         },
@@ -1178,8 +1529,8 @@ export function generateDungeonFloor(
           id: nextPropId++,
           roomId: rm.id,
           kind: 'crate',
-          gx: rm.x + rm.w - 1.5,
-          gy: rm.cy - 3,
+          gx: rm.x + rm.w - 1.8,
+          gy: rm.cy - 4,
           hp: 24,
           hitFlash: 0,
         },
@@ -1187,8 +1538,8 @@ export function generateDungeonFloor(
           id: nextPropId++,
           roomId: rm.id,
           kind: 'crate',
-          gx: rm.x + rm.w - 1.5,
-          gy: rm.cy + 3,
+          gx: rm.x + rm.w - 1.8,
+          gy: rm.cy + 4,
           hp: 24,
           hitFlash: 0,
         }
@@ -1199,8 +1550,8 @@ export function generateDungeonFloor(
           id: nextPropId++,
           roomId: rm.id,
           kind: 'vase',
-          gx: rm.x + 1.6,
-          gy: rm.y + 1.6,
+          gx: rm.x + 1.8,
+          gy: rm.y + 1.8,
           hp: 15,
           hitFlash: 0,
         },
@@ -1208,8 +1559,8 @@ export function generateDungeonFloor(
           id: nextPropId++,
           roomId: rm.id,
           kind: 'crate',
-          gx: rm.x + rm.w - 1.6,
-          gy: rm.y + 1.6,
+          gx: rm.x + rm.w - 1.8,
+          gy: rm.y + 1.8,
           hp: 20,
           hitFlash: 0,
         }
@@ -1217,12 +1568,18 @@ export function generateDungeonFloor(
     }
   }
 
+  // Connect all 9 rooms in the 3x3 grid
   const connections: [number, number][] = [
     [1, 2],
     [2, 3],
     [3, 4],
-    [3, 5],
-    [2, 6],
+    [2, 5],
+    [5, 6],
+    [3, 7],
+    [5, 8],
+    [2, 9],
+    [7, 9],
+    [8, 9],
   ];
 
   for (const [idA, idB] of connections) {
@@ -1302,210 +1659,29 @@ export function generateDungeonFloor(
   let nextEnemyId = 1;
   let nextInteractId = 200;
 
-  const scaleHp = (1 + (floorNum - 1) * 0.24) * diffCfg.hpMult;
-  const scaleDmg = (1 + (floorNum - 1) * 0.16) * diffCfg.dmgMult;
-  const scaleSpd = diffCfg.speedMult;
-
-  const createEnemy = (
-    roomId: number,
-    type: EnemyType,
-    gx: number,
-    gy: number,
-    forceElite: boolean = false
-  ): Enemy => {
-    const isElite =
-      type !== 'warden_boss' &&
-      type !== 'dummy' &&
-      (forceElite || Math.random() < diffCfg.eliteChance);
-    const eliteHpMult = isElite ? 1.6 : 1.0;
-    const eliteDmgMult = isElite ? 1.22 : 1.0;
-
-    if (type === 'slime') {
-      return {
-        id: nextEnemyId++,
-        roomId,
-        type: 'slime',
-        name: isElite ? 'Elite King Slime' : 'Emerald Slime',
-        gx,
-        gy,
-        vx: 0,
-        vy: 0,
-        hp: Math.round(46 * scaleHp * eliteHpMult),
-        maxHp: Math.round(46 * scaleHp * eliteHpMult),
-        damage: Math.round(11 * scaleDmg * eliteDmgMult),
-        speed: 3.3 * scaleSpd,
-        attackRange: 1.4,
-        detectRange: 9.0,
-        aggroed: false,
-        alertTimer: 0,
-        state: 'idle',
-        stateTimer: 0,
-        windupDuration: 0.45,
-        targetGx: gx,
-        targetGy: gy,
-        facing: 1,
-        hitFlash: 0,
-        squashX: 1,
-        squashY: 1,
-        hopZ: 0,
-        animPhase: Math.random() * 10,
-        isElite,
-      };
-    }
-    if (type === 'goblin') {
-      return {
-        id: nextEnemyId++,
-        roomId,
-        type: 'goblin',
-        name: isElite ? 'Elite Goblin Sharpshooter' : 'Goblin Marksman',
-        gx,
-        gy,
-        vx: 0,
-        vy: 0,
-        hp: Math.round(54 * scaleHp * eliteHpMult),
-        maxHp: Math.round(54 * scaleHp * eliteHpMult),
-        damage: Math.round(13 * scaleDmg * eliteDmgMult),
-        speed: 2.5 * scaleSpd,
-        attackRange: 6.8,
-        detectRange: 9.5,
-        aggroed: false,
-        alertTimer: 0,
-        state: 'idle',
-        stateTimer: 0,
-        windupDuration: 0.68,
-        targetGx: gx,
-        targetGy: gy,
-        facing: 1,
-        hitFlash: 0,
-        squashX: 1,
-        squashY: 1,
-        hopZ: 0,
-        animPhase: Math.random() * 10,
-        isElite,
-      };
-    }
-    if (type === 'necro_mage') {
-      return {
-        id: nextEnemyId++,
-        roomId,
-        type: 'necro_mage',
-        name: isElite ? 'Arch-Lich Necromancer' : 'Skeleton Necro Mage',
-        gx,
-        gy,
-        vx: 0,
-        vy: 0,
-        hp: Math.round(65 * scaleHp * eliteHpMult),
-        maxHp: Math.round(65 * scaleHp * eliteHpMult),
-        damage: Math.round(15 * scaleDmg * eliteDmgMult),
-        speed: 2.2 * scaleSpd,
-        attackRange: 7.5,
-        detectRange: 9.5,
-        aggroed: false,
-        alertTimer: 0,
-        state: 'idle',
-        stateTimer: 0,
-        windupDuration: 0.78,
-        targetGx: gx,
-        targetGy: gy,
-        facing: 1,
-        hitFlash: 0,
-        squashX: 1,
-        squashY: 1,
-        hopZ: 0,
-        animPhase: Math.random() * 10,
-        isElite,
-      };
-    }
-    if (type === 'golem') {
-      return {
-        id: nextEnemyId++,
-        roomId,
-        type: 'golem',
-        name: isElite ? 'Elder Magma Titan' : 'Obsidian Golem',
-        gx,
-        gy,
-        vx: 0,
-        vy: 0,
-        hp: Math.round(115 * scaleHp * eliteHpMult),
-        maxHp: Math.round(115 * scaleHp * eliteHpMult),
-        damage: Math.round(19 * scaleDmg * eliteDmgMult),
-        speed: 1.95 * scaleSpd,
-        attackRange: 2.3,
-        detectRange: 9.0,
-        aggroed: false,
-        alertTimer: 0,
-        state: 'idle',
-        stateTimer: 0,
-        windupDuration: 0.82,
-        targetGx: gx,
-        targetGy: gy,
-        facing: 1,
-        hitFlash: 0,
-        squashX: 1,
-        squashY: 1,
-        hopZ: 0,
-        animPhase: Math.random() * 10,
-        isElite,
-      };
-    }
-    return {
-      id: nextEnemyId++,
-      roomId,
-      type: 'warden_boss',
-      name:
-        floorNum >= 3 ? 'Malakor, Abyssal Sovereign' : 'Vorgath, Dungeon Warden',
-      gx,
-      gy,
-      vx: 0,
-      vy: 0,
-      hp: Math.round(305 * scaleHp),
-      maxHp: Math.round(305 * scaleHp),
-      damage: Math.round(22 * scaleDmg),
-      speed: 2.5 * scaleSpd,
-      attackRange: 3.8,
-      detectRange: 11.0,
-      aggroed: false,
-      alertTimer: 0,
-      state: 'idle',
-      stateTimer: 0,
-      windupDuration: 0.75,
-      targetGx: gx,
-      targetGy: gy,
-      facing: -1,
-      hitFlash: 0,
-      squashX: 1,
-      squashY: 1,
-      hopZ: 0,
-      animPhase: 0,
-      isBoss: true,
-      enraged: false,
-    };
-  };
-
   for (const rm of rooms) {
     if (rm.kind === 'COMBAT_ROOM') {
-      const count =
-        4 + (floorNum > 1 ? 1 : 0) + (difficulty !== 'normal' ? 1 : 0);
-      for (let i = 0; i < count; i++) {
-        const ex = rm.x + 2.2 + Math.random() * (rm.w - 4.4);
-        const ey = rm.y + 2.2 + Math.random() * (rm.h - 4.4);
-        const tileType = tiles[Math.floor(ey)]?.[Math.floor(ex)]?.type;
-        if (tileType === 'pillar' || tileType === 'spike_trap') continue;
-        let type: EnemyType = 'slime';
-        if (i === count - 1 && floorNum >= 2) {
-          type = 'golem';
-        } else if (i % 3 === 2) {
-          type = 'necro_mage';
-        } else if (i % 2 === 1) {
-          type = 'goblin';
-        }
-        enemies.push(createEnemy(rm.id, type, ex, ey));
+      const wave1 = spawnWaveEnemiesForRoom(
+        rm,
+        floorNum,
+        difficulty,
+        tiles,
+        nextEnemyId,
+        1
+      );
+      // Set initial wave enemies to idle until player enters room
+      for (const e of wave1) {
+        e.aggroed = false;
+        e.alertTimer = 0;
+        e.state = 'idle';
       }
+      enemies.push(...wave1);
+      nextEnemyId += wave1.length + 5;
     } else if (rm.kind === 'CHEST_ROOM') {
       interactables.push({
         id: nextInteractId++,
         type: 'chest',
-        gx: rm.cx - 1.5,
+        gx: rm.cx - 1.8,
         gy: rm.cy,
         opened: false,
         value: 0,
@@ -1529,7 +1705,7 @@ export function generateDungeonFloor(
       interactables.push({
         id: nextInteractId++,
         type: 'shop_item',
-        gx: rm.cx - 2.2,
+        gx: rm.cx - 2.4,
         gy: rm.cy + 0.5,
         opened: false,
         value: 35,
@@ -1552,7 +1728,7 @@ export function generateDungeonFloor(
       interactables.push({
         id: nextInteractId++,
         type: 'shop_item',
-        gx: rm.cx + 2.2,
+        gx: rm.cx + 2.4,
         gy: rm.cy + 0.5,
         opened: false,
         value: 15,
@@ -1561,9 +1737,42 @@ export function generateDungeonFloor(
         label: 'Energy Crystal (+120 Mana)',
       });
     } else if (rm.kind === 'BOSS_ROOM') {
-      enemies.push(createEnemy(rm.id, 'warden_boss', rm.cx + 1.8, rm.cy));
-      enemies.push(createEnemy(rm.id, 'necro_mage', rm.cx - 2.5, rm.cy - 2.2));
-      enemies.push(createEnemy(rm.id, 'goblin', rm.cx - 2.5, rm.cy + 2.2));
+      const boss = createDungeonEnemy(
+        nextEnemyId++,
+        rm.id,
+        'warden_boss',
+        rm.cx + 2.5,
+        rm.cy,
+        floorNum,
+        difficulty,
+        false
+      );
+      boss.aggroed = false;
+      boss.state = 'idle';
+      enemies.push(boss);
+
+      const bossGuards: [EnemyType, number, number][] = [
+        ['necro_mage', rm.cx - 3.2, rm.cy - 3.2],
+        ['necro_mage', rm.cx - 3.2, rm.cy + 3.2],
+        ['goblin', rm.cx + 1.0, rm.cy - 4.0],
+        ['goblin', rm.cx + 1.0, rm.cy + 4.0],
+        ['golem', rm.cx - 1.5, rm.cy],
+      ];
+      for (const [gType, gx, gy] of bossGuards) {
+        const g = createDungeonEnemy(
+          nextEnemyId++,
+          rm.id,
+          gType,
+          gx,
+          gy,
+          floorNum,
+          difficulty,
+          false
+        );
+        g.aggroed = false;
+        g.state = 'idle';
+        enemies.push(g);
+      }
     }
   }
 

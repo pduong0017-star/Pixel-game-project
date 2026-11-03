@@ -1,6 +1,170 @@
-// Procedural 8-Bit Retro Web Audio API Synthesizer + Chiptune BGM Sequencer
+// 4-Channel Polyphonic 8-Bit Chiptune Synthesizer, Algorithmic Music Generator & Retro SFX Engine
+import { MusicStyle } from './types';
 
-export type BgmTrack = 'title' | 'lobby' | 'dungeon' | 'boss';
+export type BgmTrack = 'title' | 'lobby' | 'dungeon' | 'boss' | 'custom';
+
+export interface ChiptunePattern {
+  name: string;
+  style: MusicStyle;
+  bpm: number;
+  lead: number[]; // 32 steps (Hz)
+  arp: number[]; // 32 steps (Hz)
+  bass: number[]; // 32 steps (Hz)
+  drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat')[]; // 32 steps
+}
+
+const SCALES: Record<MusicStyle, { root: number; intervals: number[]; label: string }> = {
+  heroic_minor: {
+    root: 220, // A3
+    intervals: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19],
+    label: 'Dark Heroic Minor (Soul Knight)',
+  },
+  samurai_pentatonic: {
+    root: 293.66, // D4 Hirajoshi
+    intervals: [0, 2, 3, 7, 8, 12, 14, 15, 19, 20, 24],
+    label: 'Samurai Hirajoshi (Katana Spirit)',
+  },
+  cyber_synth: {
+    root: 164.81, // E3 Dorian
+    intervals: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19],
+    label: 'Cyberpunk Dorian (Synthwave)',
+  },
+  boss_phrygian: {
+    root: 164.81, // E3 Phrygian Dominant
+    intervals: [0, 1, 4, 5, 7, 8, 10, 12, 13, 16, 17, 19],
+    label: 'Abyssal Phrygian (Boss Metal)',
+  },
+  arcade_major: {
+    root: 261.63, // C4 Mixolydian
+    intervals: [0, 2, 4, 5, 7, 9, 10, 12, 14, 16, 17, 19],
+    label: 'Retro Arcade Mixolydian (8-Bit)',
+  },
+};
+
+function semiToFreq(rootHz: number, semitones: number): number {
+  return Number((rootHz * Math.pow(2, semitones / 12)).toFixed(2));
+}
+
+function buildPresetPatterns(): Record<Exclude<BgmTrack, 'custom'>, ChiptunePattern> {
+  return {
+    title: {
+      name: 'Obsidian Overture',
+      style: 'heroic_minor',
+      bpm: 132,
+      lead: [
+        440, 0, 523.25, 659.25, 587.33, 0, 523.25, 493.88,
+        440, 523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 392,
+        440, 0, 659.25, 880, 783.99, 659.25, 587.33, 523.25,
+        493.88, 523.25, 587.33, 659.25, 587.33, 523.25, 493.88, 440,
+      ],
+      arp: [
+        261.63, 329.63, 440, 329.63, 293.66, 349.23, 440, 349.23,
+        261.63, 329.63, 440, 523.25, 392, 329.63, 293.66, 246.94,
+        261.63, 329.63, 440, 523.25, 392, 493.88, 587.33, 493.88,
+        293.66, 349.23, 440, 349.23, 246.94, 329.63, 392, 329.63,
+      ],
+      bass: [
+        110, 110, 220, 110, 146.83, 146.83, 130.81, 98,
+        110, 110, 164.81, 164.81, 146.83, 130.81, 110, 98,
+        110, 110, 220, 110, 196, 196, 146.83, 130.81,
+        146.83, 146.83, 130.81, 130.81, 123.47, 110, 98, 82.41,
+      ],
+      drums: [
+        'kick', 'hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'hat',
+        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'hat', 'snare',
+        'kick', 'hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'hat',
+        'kick', 'hat', 'snare', 'kick_hat', 'snare', 'snare', 'kick', 'snare',
+      ],
+    },
+    lobby: {
+      name: 'Sanctuary of Heroes',
+      style: 'arcade_major',
+      bpm: 118,
+      lead: [
+        523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46,
+        523.25, 659.25, 783.99, 1046.5, 880, 783.99, 659.25, 587.33,
+        659.25, 783.99, 880, 1046.5, 987.77, 880, 783.99, 659.25,
+        587.33, 659.25, 783.99, 659.25, 523.25, 587.33, 523.25, 0,
+      ],
+      arp: [
+        261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23,
+        261.63, 329.63, 392, 523.25, 440, 392, 329.63, 293.66,
+        329.63, 392, 440, 523.25, 493.88, 440, 392, 329.63,
+        293.66, 349.23, 392, 349.23, 261.63, 329.63, 392, 261.63,
+      ],
+      bass: [
+        130.81, 0, 196, 130.81, 146.83, 0, 220, 146.83,
+        130.81, 0, 196, 130.81, 164.81, 146.83, 130.81, 98,
+        164.81, 0, 220, 164.81, 146.83, 0, 196, 146.83,
+        146.83, 0, 196, 146.83, 130.81, 98, 130.81, 0,
+      ],
+      drums: [
+        'kick', 'none', 'hat', 'none', 'snare', 'none', 'hat', 'kick',
+        'kick', 'none', 'hat', 'none', 'snare', 'hat', 'kick', 'snare',
+        'kick', 'none', 'hat', 'none', 'snare', 'none', 'hat', 'kick',
+        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'hat', 'none',
+      ],
+    },
+    dungeon: {
+      name: 'Blade & Bullet Storm',
+      style: 'samurai_pentatonic',
+      bpm: 152,
+      lead: [
+        587.33, 587.33, 659.25, 698.46, 880, 698.46, 659.25, 587.33,
+        523.25, 587.33, 659.25, 880, 932.33, 880, 698.46, 659.25,
+        587.33, 698.46, 880, 1174.66, 932.33, 880, 698.46, 659.25,
+        587.33, 523.25, 587.33, 698.46, 659.25, 587.33, 523.25, 440,
+      ],
+      arp: [
+        293.66, 440, 587.33, 440, 349.23, 440, 698.46, 440,
+        261.63, 392, 523.25, 392, 349.23, 466.16, 698.46, 466.16,
+        293.66, 440, 587.33, 880, 466.16, 440, 349.23, 329.63,
+        293.66, 349.23, 440, 587.33, 329.63, 293.66, 261.63, 220,
+      ],
+      bass: [
+        146.83, 146.83, 293.66, 146.83, 174.61, 174.61, 146.83, 130.81,
+        130.81, 130.81, 261.63, 130.81, 116.54, 116.54, 130.81, 146.83,
+        146.83, 146.83, 293.66, 146.83, 116.54, 116.54, 130.81, 146.83,
+        146.83, 130.81, 116.54, 110, 98, 110, 130.81, 146.83,
+      ],
+      drums: [
+        'kick', 'hat', 'snare', 'hat', 'kick', 'kick_hat', 'snare', 'hat',
+        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'kick_hat', 'snare',
+        'kick', 'hat', 'snare', 'hat', 'kick', 'kick_hat', 'snare', 'hat',
+        'kick', 'snare', 'kick', 'snare', 'kick', 'snare', 'snare', 'snare',
+      ],
+    },
+    boss: {
+      name: 'Wrath of the Obsidian Warden',
+      style: 'boss_phrygian',
+      bpm: 168,
+      lead: [
+        659.25, 698.46, 659.25, 587.33, 659.25, 830.61, 783.99, 698.46,
+        659.25, 698.46, 830.61, 987.77, 880, 830.61, 698.46, 659.25,
+        987.77, 1046.5, 987.77, 830.61, 880, 987.77, 830.61, 698.46,
+        659.25, 587.33, 659.25, 830.61, 698.46, 659.25, 587.33, 523.25,
+      ],
+      arp: [
+        329.63, 415.3, 493.88, 659.25, 349.23, 440, 523.25, 698.46,
+        329.63, 415.3, 493.88, 659.25, 293.66, 349.23, 440, 587.33,
+        329.63, 415.3, 493.88, 659.25, 349.23, 440, 523.25, 698.46,
+        293.66, 349.23, 440, 587.33, 329.63, 415.3, 493.88, 329.63,
+      ],
+      bass: [
+        82.41, 82.41, 164.81, 82.41, 87.31, 87.31, 174.61, 87.31,
+        82.41, 82.41, 164.81, 82.41, 73.42, 73.42, 98, 110,
+        82.41, 82.41, 164.81, 82.41, 110, 110, 116.54, 98,
+        87.31, 87.31, 82.41, 82.41, 73.42, 82.41, 87.31, 98,
+      ],
+      drums: [
+        'kick', 'kick_hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'kick_hat',
+        'kick', 'hat', 'snare', 'kick_hat', 'kick', 'snare', 'snare', 'snare',
+        'kick', 'kick_hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'kick_hat',
+        'kick', 'snare', 'kick', 'snare', 'snare', 'snare', 'kick', 'snare',
+      ],
+    },
+  };
+}
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -9,6 +173,20 @@ class SoundEngine {
   private currentTrack: BgmTrack = 'title';
   private bgmTimer: number | null = null;
   private bgmStep: number = 0;
+
+  // Channel toggles for Music Studio
+  public channelEnabled = {
+    lead: true,
+    arp: true,
+    bass: true,
+    drums: true,
+  };
+
+  private presets = buildPresetPatterns();
+  private customPattern: ChiptunePattern = {
+    ...buildPresetPatterns().dungeon,
+    name: 'Custom Chiptune #1',
+  };
 
   private ensureContext(forBgm = false): AudioContext | null {
     if (!forBgm && this.muted) return null;
@@ -46,10 +224,112 @@ class SoundEngine {
     }
   }
 
+  public getActivePattern(): ChiptunePattern {
+    if (this.currentTrack === 'custom') return this.customPattern;
+    return this.presets[this.currentTrack] || this.presets.title;
+  }
+
   // ==========================================================================
-  // 8-BIT CHIPTUNE BGM SEQUENCER (Title, Lobby, Dungeon Combat, Boss Theme)
+  // ALGORITHMIC 8-BIT MUSIC GENERATOR TOOL (Máy Sáng Tác Nhạc 8-Bit Cho Game)
   // ==========================================================================
+  public generateProceduralSong(
+    style: MusicStyle = 'samurai_pentatonic',
+    bpm: number = 148
+  ): ChiptunePattern {
+    const scaleCfg = SCALES[style] || SCALES.heroic_minor;
+    const root = scaleCfg.root;
+    const notes = scaleCfg.intervals;
+
+    const lead: number[] = [];
+    const arp: number[] = [];
+    const bass: number[] = [];
+    const drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat')[] = [];
+
+    // Choose a 4-bar chord root progression (in scale indices)
+    const progressions = [
+      [0, 5, 3, 4],
+      [0, 3, 5, 4],
+      [0, 2, 4, 3],
+      [0, 6, 5, 4],
+    ];
+    const prog = progressions[Math.floor(Math.random() * progressions.length)];
+
+    let currentNoteIdx = 4;
+    for (let step = 0; step < 32; step++) {
+      const bar = Math.floor(step / 8);
+      const chordDegree = prog[bar % 4];
+      const bassSemi = notes[chordDegree % notes.length];
+
+      // 1. Bassline (Octave -1 and Octave 0)
+      if (step % 2 === 0) {
+        bass.push(semiToFreq(root * 0.5, bassSemi));
+      } else {
+        bass.push(semiToFreq(root, bassSemi));
+      }
+
+      // 2. Arpeggio (Cycle 1 - 3 - 5 of the current chord)
+      const arpOffset = [0, 2, 4, 2][step % 4];
+      const arpSemi = notes[(chordDegree + arpOffset) % notes.length];
+      arp.push(semiToFreq(root, arpSemi));
+
+      // 3. Lead Melody (Motif with rhythmic rests & climax on bar 3-4)
+      if (step % 8 === 7 && Math.random() < 0.45) {
+        lead.push(0); // Breath rest
+      } else {
+        const delta = [-2, -1, 1, 1, 2, 0][Math.floor(Math.random() * 6)];
+        currentNoteIdx = Math.max(
+          2,
+          Math.min(notes.length - 1, currentNoteIdx + delta)
+        );
+        if (step % 8 === 0) {
+          currentNoteIdx = (chordDegree + 4) % notes.length;
+        }
+        lead.push(semiToFreq(root * 2, notes[currentNoteIdx]));
+      }
+
+      // 4. 8-Bit Drum Groove
+      if (step >= 28) {
+        drums.push(step % 2 === 0 ? 'snare' : 'kick_hat'); // Drum fill!
+      } else if (step % 4 === 0) {
+        drums.push('kick');
+      } else if (step % 4 === 2) {
+        drums.push('snare');
+      } else if (step % 2 === 1) {
+        drums.push(Math.random() < 0.35 ? 'kick_hat' : 'hat');
+      } else {
+        drums.push('hat');
+      }
+    }
+
+    const generated: ChiptunePattern = {
+      name: `${scaleCfg.label.split(' ')[0]} #${Math.floor(100 + Math.random() * 900)}`,
+      style,
+      bpm,
+      lead,
+      arp,
+      bass,
+      drums,
+    };
+
+    this.customPattern = generated;
+    // Also apply to dungeon & lobby if user generates a custom soundtrack!
+    this.presets.dungeon = generated;
+    this.startBgm('custom');
+    return generated;
+  }
+
+  public setTempoBpm(bpm: number) {
+    const clamped = Math.max(85, Math.min(190, bpm));
+    const pat = this.getActivePattern();
+    pat.bpm = clamped;
+    this.startBgm(this.currentTrack);
+  }
+
   public startBgm(track: BgmTrack) {
+    // If user created a custom track and enters dungeon, keep playing their custom track!
+    if (track === 'dungeon' && this.currentTrack === 'custom') {
+      track = 'custom';
+    }
     this.currentTrack = track;
     if (this.bgmMuted || typeof window === 'undefined') {
       this.stopBgm();
@@ -61,76 +341,31 @@ class SoundEngine {
       this.bgmTimer = null;
     }
 
-    const stepMs =
-      track === 'boss'
-        ? 135
-        : track === 'dungeon'
-        ? 155
-        : track === 'title'
-        ? 175
-        : 210;
-
-    // 16-step Chiptune Melodies & Basslines (Hz)
-    const melodies: Record<BgmTrack, number[]> = {
-      title: [
-        440, 0, 523.25, 659.25, 587.33, 0, 523.25, 493.88,
-        440, 523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 392,
-      ],
-      lobby: [
-        523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46,
-        523.25, 659.25, 783.99, 1046.5, 880, 783.99, 659.25, 587.33,
-      ],
-      dungeon: [
-        329.63, 329.63, 392, 440, 493.88, 440, 392, 329.63,
-        293.66, 329.63, 392, 493.88, 523.25, 493.88, 440, 392,
-      ],
-      boss: [
-        440, 466.16, 440, 392, 440, 523.25, 493.88, 440,
-        587.33, 554.37, 523.25, 493.88, 659.25, 587.33, 523.25, 466.16,
-      ],
-    };
-
-    const basslines: Record<BgmTrack, number[]> = {
-      title: [
-        110, 110, 130.81, 130.81, 146.83, 146.83, 130.81, 98,
-        110, 110, 164.81, 164.81, 146.83, 130.81, 110, 98,
-      ],
-      lobby: [
-        130.81, 0, 196, 0, 146.83, 0, 220, 0,
-        130.81, 0, 196, 0, 164.81, 0, 196, 0,
-      ],
-      dungeon: [
-        82.41, 82.41, 110, 82.41, 98, 98, 123.47, 98,
-        73.42, 73.42, 98, 73.42, 87.31, 98, 110, 123.47,
-      ],
-      boss: [
-        110, 110, 116.54, 110, 98, 98, 110, 98,
-        146.83, 146.83, 130.81, 123.47, 116.54, 110, 98, 82.41,
-      ],
-    };
+    const pattern = this.getActivePattern();
+    // 16th-note step duration in ms from BPM
+    const stepMs = Math.round((60000 / pattern.bpm) / 2);
 
     this.bgmTimer = window.setInterval(() => {
       if (this.bgmMuted) return;
       const ctx = this.ensureContext(true);
       if (!ctx || ctx.state !== 'running') return;
 
+      const pat = this.getActivePattern();
       const now = ctx.currentTime;
-      const idx = this.bgmStep % 16;
+      const idx = this.bgmStep % pat.lead.length;
       this.bgmStep++;
 
-      const leadFreq = melodies[this.currentTrack][idx];
-      const bassFreq = basslines[this.currentTrack][idx];
+      const stepDur = stepMs / 1000;
 
-      // 1. Lead Chiptune Channel (Square / Triangle)
-      if (leadFreq > 0) {
+      // 1. Lead Channel (Pulse/Square with slight pitch vibrato)
+      if (this.channelEnabled.lead && pat.lead[idx] > 0) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = this.currentTrack === 'lobby' ? 'triangle' : 'square';
-        osc.frequency.setValueAtTime(leadFreq, now);
+        osc.type = pat.style === 'arcade_major' ? 'triangle' : 'square';
+        osc.frequency.setValueAtTime(pat.lead[idx], now);
 
-        const vol = this.currentTrack === 'lobby' ? 0.032 : 0.026;
-        const dur = (stepMs / 1000) * 0.82;
-        gain.gain.setValueAtTime(vol, now);
+        const dur = stepDur * 0.85;
+        gain.gain.setValueAtTime(0.028, now);
         gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
 
         osc.connect(gain);
@@ -139,15 +374,33 @@ class SoundEngine {
         osc.stop(now + dur + 0.01);
       }
 
-      // 2. Bassline Channel (Triangle)
-      if (bassFreq > 0) {
+      // 2. Arpeggio Harmony Channel
+      if (this.channelEnabled.arp && pat.arp[idx] > 0) {
+        const aOsc = ctx.createOscillator();
+        const aGain = ctx.createGain();
+        aOsc.type = 'square';
+        aOsc.frequency.setValueAtTime(pat.arp[idx], now);
+        aOsc.frequency.setValueAtTime(pat.arp[idx] * 1.25, now + stepDur * 0.45);
+
+        const dur = stepDur * 0.78;
+        aGain.gain.setValueAtTime(0.014, now);
+        aGain.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+
+        aOsc.connect(aGain);
+        aGain.connect(ctx.destination);
+        aOsc.start(now);
+        aOsc.stop(now + dur + 0.01);
+      }
+
+      // 3. Deep Sub-Bass Channel
+      if (this.channelEnabled.bass && pat.bass[idx] > 0) {
         const bOsc = ctx.createOscillator();
         const bGain = ctx.createGain();
         bOsc.type = 'triangle';
-        bOsc.frequency.setValueAtTime(bassFreq, now);
+        bOsc.frequency.setValueAtTime(pat.bass[idx], now);
 
-        const dur = (stepMs / 1000) * 0.9;
-        bGain.gain.setValueAtTime(0.042, now);
+        const dur = stepDur * 0.92;
+        bGain.gain.setValueAtTime(0.052, now);
         bGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
         bOsc.connect(bGain);
@@ -156,22 +409,51 @@ class SoundEngine {
         bOsc.stop(now + dur + 0.01);
       }
 
-      // 3. Percussion Hi-Hat / Kick on Dungeon & Boss tracks
-      if (
-        (this.currentTrack === 'dungeon' || this.currentTrack === 'boss') &&
-        idx % 2 === 0
-      ) {
-        const pOsc = ctx.createOscillator();
-        const pGain = ctx.createGain();
-        pOsc.type = 'square';
-        pOsc.frequency.setValueAtTime(idx % 4 === 0 ? 95 : 880, now);
-        pOsc.frequency.exponentialRampToValueAtTime(35, now + 0.03);
-        pGain.gain.setValueAtTime(0.018, now);
-        pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.032);
-        pOsc.connect(pGain);
-        pGain.connect(ctx.destination);
-        pOsc.start(now);
-        pOsc.stop(now + 0.035);
+      // 4. 8-Bit Percussion Drum Kit (Kick / Snare / Hi-Hat)
+      if (this.channelEnabled.drums) {
+        const drum = pat.drums[idx];
+        if (drum === 'kick' || drum === 'kick_hat') {
+          const kOsc = ctx.createOscillator();
+          const kGain = ctx.createGain();
+          kOsc.type = 'sine';
+          kOsc.frequency.setValueAtTime(145, now);
+          kOsc.frequency.exponentialRampToValueAtTime(36, now + 0.065);
+          kGain.gain.setValueAtTime(0.065, now);
+          kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+          kOsc.connect(kGain);
+          kGain.connect(ctx.destination);
+          kOsc.start(now);
+          kOsc.stop(now + 0.075);
+        }
+        if (drum === 'snare') {
+          // Noise burst snare
+          const bufLen = Math.floor(ctx.sampleRate * 0.065);
+          const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+          const ch = buf.getChannelData(0);
+          for (let i = 0; i < bufLen; i++) {
+            ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.4));
+          }
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          const nGain = ctx.createGain();
+          nGain.gain.setValueAtTime(0.036, now);
+          nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+          src.connect(nGain);
+          nGain.connect(ctx.destination);
+          src.start(now);
+        } else if (drum === 'hat' || drum === 'kick_hat') {
+          const hOsc = ctx.createOscillator();
+          const hGain = ctx.createGain();
+          hOsc.type = 'square';
+          hOsc.frequency.setValueAtTime(1480, now);
+          hOsc.frequency.exponentialRampToValueAtTime(620, now + 0.022);
+          hGain.gain.setValueAtTime(0.012, now);
+          hGain.gain.exponentialRampToValueAtTime(0.0005, now + 0.024);
+          hOsc.connect(hGain);
+          hGain.connect(ctx.destination);
+          hOsc.start(now);
+          hOsc.stop(now + 0.026);
+        }
       }
     }, stepMs);
   }
@@ -181,6 +463,83 @@ class SoundEngine {
       window.clearInterval(this.bgmTimer);
       this.bgmTimer = null;
     }
+  }
+
+  // Export current Chiptune Track to a downloadable 16-bit PCM .WAV Blob URL!
+  public exportCurrentTrackWavUrl(): string {
+    const pat = this.getActivePattern();
+    const sampleRate = 22050;
+    const stepSec = 60 / pat.bpm / 2;
+    const totalSteps = 64; // 2 full loops
+    const durationSec = totalSteps * stepSec;
+    const numSamples = Math.floor(sampleRate * durationSec);
+    const pcm = new Float32Array(numSamples);
+
+    for (let step = 0; step < totalSteps; step++) {
+      const idx = step % 32;
+      const startSample = Math.floor(step * stepSec * sampleRate);
+      const endSample = Math.min(
+        numSamples,
+        Math.floor((step + 1) * stepSec * sampleRate)
+      );
+      const leadF = pat.lead[idx];
+      const arpF = pat.arp[idx];
+      const bassF = pat.bass[idx];
+      const drum = pat.drums[idx];
+
+      for (let s = startSample; s < endSample; s++) {
+        const localT = (s - startSample) / sampleRate;
+        const env = Math.exp(-localT * 6.5);
+        let sample = 0;
+
+        if (leadF > 0) {
+          sample += (Math.sin(2 * Math.PI * leadF * localT) >= 0 ? 0.18 : -0.18) * env;
+        }
+        if (arpF > 0) {
+          const f = localT > stepSec * 0.45 ? arpF * 1.25 : arpF;
+          sample += (Math.sin(2 * Math.PI * f * localT) >= 0 ? 0.09 : -0.09) * env;
+        }
+        if (bassF > 0) {
+          sample += Math.asin(Math.sin(2 * Math.PI * bassF * localT)) * 0.18 * env;
+        }
+        if (drum === 'snare' && localT < 0.06) {
+          sample += (Math.random() * 2 - 1) * 0.16 * Math.exp(-localT * 30);
+        } else if ((drum === 'kick' || drum === 'kick_hat') && localT < 0.07) {
+          sample += Math.sin(2 * Math.PI * (140 - localT * 1200) * localT) * 0.25;
+        }
+        pcm[s] = Math.max(-0.95, Math.min(0.95, sample));
+      }
+    }
+
+    // Encode WAV header
+    const buffer = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buffer);
+    const writeStr = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    for (let i = 0; i < numSamples; i++) {
+      view.setInt16(44 + i * 2, Math.round(pcm[i] * 32767), true);
+    }
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
   }
 
   // Tiếng "Click" cơ học đã tai khi bấm nút UI / Đổi Skin
@@ -207,7 +566,7 @@ class SoundEngine {
     osc.stop(now + 0.045);
   }
 
-  // Tiếng "CLANG!" kim loại đanh gọn khi chém phản đòn đạn (Soul Knight Bullet Deflect!)
+  // Tiếng "CLANG!" kim loại đanh gọn khi chém phản đòn đạn
   public playDeflectClang() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -234,6 +593,51 @@ class SoundEngine {
     });
   }
 
+  // Tiếng bùng nổ Tuyệt Kỹ Tối Thượng (Ultimate Cast)
+  public playUltimateCast() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const chord = [220, 329.63, 440, 659.25, 880, 1318.51];
+    chord.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx % 2 === 0 ? 'sawtooth' : 'square';
+      osc.frequency.setValueAtTime(f, now + idx * 0.03);
+      osc.frequency.exponentialRampToValueAtTime(f * 1.2, now + idx * 0.03 + 0.25);
+
+      gain.gain.setValueAtTime(0.13, now + idx * 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 0.26);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.03);
+      osc.stop(now + idx * 0.03 + 0.27);
+    });
+  }
+
+  // Tiếng còi báo hiệu Đợt Quái Mới (Wave 2 / Wave 3 Spawn)
+  public playWaveSpawn() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const notes = [329.63, 392, 493.88, 659.25];
+    notes.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(f, now + idx * 0.055);
+      gain.gain.setValueAtTime(0.11, now + idx * 0.055);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.055 + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.055);
+      osc.stop(now + idx * 0.055 + 0.19);
+    });
+  }
+
   // Tiếng "Ching!" rực rỡ khi mở khóa Tướng / Skin / Nhận Kim Cương
   public playChing() {
     const ctx = this.ensureContext();
@@ -257,7 +661,6 @@ class SoundEngine {
     });
   }
 
-  // Tiếng rung rương Gacha hồi hộp
   public playChestRoll() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -277,7 +680,6 @@ class SoundEngine {
     }
   }
 
-  // Tiếng bước chân "tạch tạch" 8-bit retro
   public playFootstep() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -299,7 +701,6 @@ class SoundEngine {
     osc.stop(now + 0.036);
   }
 
-  // Tiếng chém kiếm "swoosh"
   public playSlash(heavy = false) {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -335,7 +736,6 @@ class SoundEngine {
     noise.start(now);
   }
 
-  // Tiếng bắn súng / laser / shotgun kiểu Soul Knight
   public playGunshot(kind: 'pistol' | 'shotgun' | 'plasma' | 'bow' = 'pistol') {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -676,3 +1076,4 @@ class SoundEngine {
 }
 
 export const sound = new SoundEngine();
+export { SCALES as MUSIC_SCALES };
