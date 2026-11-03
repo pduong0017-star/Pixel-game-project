@@ -30,6 +30,7 @@ import { I18N, LANG_OPTIONS } from './game/i18n';
 import { drawCustomizedHero, getSpriteBank } from './game/pixelSprites';
 import { MUSIC_SCALES, sound } from './game/sound';
 import {
+  ACHIEVEMENT_LIST,
   AVATAR_LIST,
   DEFAULT_PROFILE,
   EAR_STYLES,
@@ -48,6 +49,8 @@ import {
   BoonOption,
   DifficultyId,
   EarStyle,
+  EnemyType,
+  GameModeId,
   GameSettings,
   GameState,
   HeroClassId,
@@ -71,6 +74,10 @@ const SKIN_TIERS: SkinTier[] = ['default', 'rare', 'legendary'];
 const INITIAL_HUD: HudSnapshot = {
   inLivingRoom: true,
   difficulty: 'normal',
+  gameMode: 'CAMPAIGN',
+  biomeName: 'OBSIDIAN CRYPT',
+  stageBannerTimer: 0,
+  bossWarningTimer: 0,
   hp: 155,
   maxHp: 155,
   armor: 70,
@@ -96,7 +103,9 @@ const INITIAL_HUD: HudSnapshot = {
   petId: 'cat',
   petName: 'Chilly the Cat',
   activeWeapon: WEAPONS.broadsword,
+  activeWeaponUpgrade: 0,
   secondaryWeapon: WEAPONS.pioneer_pistol,
+  secondaryWeaponUpgrade: 0,
   statueBlessing: null,
   dashCooldownRatio: 0,
   skillCooldownRatio: 0,
@@ -241,6 +250,151 @@ function WeaponMiniSprite({ weaponId }: { weaponId: WeaponId }) {
     />
   );
 }
+
+function EnemyMiniSprite({ enemyType }: { enemyType: EnemyType }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const cvs = ref.current;
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    if (!ctx) return;
+    const bank = getSpriteBank();
+    let raf = 0;
+    const start = performance.now();
+    const render = (now: number) => {
+      const t = Math.max(0, (now - start) / 1000);
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      ctx.imageSmoothingEnabled = false;
+      const frames = bank.enemies[enemyType] || bank.enemies.goblin_scout;
+      const idx = Math.abs(Math.floor(t * 4)) % 2;
+      const sp = frames[idx] || frames[0];
+      if (sp) {
+        const isBoss =
+          enemyType === 'warden_boss' ||
+          enemyType === 'cryo_boss' ||
+          enemyType === 'inferno_boss';
+        const scale = isBoss ? 1.55 : 2.1;
+        ctx.save();
+        ctx.translate(cvs.width / 2, cvs.height - 6);
+        ctx.scale(scale, scale);
+        ctx.drawImage(
+          sp,
+          Math.round(-sp.width / 2),
+          Math.round(-sp.height)
+        );
+        ctx.restore();
+      }
+      raf = requestAnimationFrame(render);
+    };
+    raf = requestAnimationFrame(render);
+    return () => cancelAnimationFrame(raf);
+  }, [enemyType]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={56}
+      height={52}
+      className="w-14 h-13 shrink-0 pointer-events-none"
+    />
+  );
+}
+
+const BESTIARY_ENTRIES: {
+  type: EnemyType;
+  name: string;
+  role: string;
+  biome: string;
+  hp: number;
+  dmg: number;
+  desc: string;
+  isBoss?: boolean;
+  accent: string;
+}[] = [
+  {
+    type: 'goblin_scout',
+    name: 'Goblin Raider',
+    role: 'Swarm Melee',
+    biome: '1-1 Obsidian Crypt',
+    hp: 65,
+    dmg: 14,
+    desc: 'Fast melee raider that rushes heroes in packs with jagged daggers.',
+    accent: '#4ade80',
+  },
+  {
+    type: 'toxic_slime',
+    name: 'Venom Slime',
+    role: 'Acid Splitter',
+    biome: '1-1 Obsidian Crypt',
+    hp: 95,
+    dmg: 16,
+    desc: 'Corrosive dungeon ooze with high resilience and close-range lunges.',
+    accent: '#a3e635',
+  },
+  {
+    type: 'skeleton_archer',
+    name: 'Bone Marksman',
+    role: 'Ranged Sniper',
+    biome: 'All Floors',
+    hp: 75,
+    dmg: 18,
+    desc: 'Undead archer firing high-velocity bone arrows that can be deflected.',
+    accent: '#cbd5e1',
+  },
+  {
+    type: 'armored_orc',
+    name: 'Ironclad Orc',
+    role: 'Heavy Bruiser',
+    biome: '1-2 Frostbite Cavern',
+    hp: 185,
+    dmg: 26,
+    desc: 'Heavily armored vanguard that absorbs punishment and crushes shields.',
+    accent: '#fb923c',
+  },
+  {
+    type: 'void_acolyte',
+    name: 'Void Warlock',
+    role: 'Tri-Shot Caster',
+    biome: '1-2 / 1-3',
+    hp: 115,
+    dmg: 22,
+    desc: 'Teleports and unleashes 3-way spreads of dark arcane orbs.',
+    accent: '#c084fc',
+  },
+  {
+    type: 'warden_boss',
+    name: 'Vorgath, Obsidian Warden',
+    role: 'Floor 1-1 Boss',
+    biome: '1-1 Obsidian Crypt',
+    hp: 1450,
+    dmg: 34,
+    desc: 'Unleashes 12-way radial bullet hell rings and aimed 3-way void bursts.',
+    isBoss: true,
+    accent: '#f43f5e',
+  },
+  {
+    type: 'cryo_boss',
+    name: 'Glacius, Cryo Behemoth',
+    role: 'Floor 1-2 Boss',
+    biome: '1-2 Frostbite Cavern',
+    hp: 1850,
+    dmg: 38,
+    desc: 'Fires 14-way Frost Novas and 5-way Chilling Ice Shards across the cavern.',
+    isBoss: true,
+    accent: '#38bdf8',
+  },
+  {
+    type: 'inferno_boss',
+    name: 'Ignis, Inferno Archdemon',
+    role: 'Floor 1-3 Final Boss',
+    biome: '1-3 Inferno Magma Core',
+    hp: 2350,
+    dmg: 44,
+    desc: 'Commands 16-way Hellfire Rings and rapid 5-way Magma Barrages.',
+    isBoss: true,
+    accent: '#f97316',
+  },
+];
 
 // ============================================================================
 // CINEMATIC SPLASH DIORAMA CANVAS (Hero Deflecting Boss Bullets in Real Time)
@@ -828,9 +982,13 @@ export default function App() {
   const [gameState, setGameState] = useState<GameState>('SPLASH_TITLE');
   const [selectedClass, setSelectedClass] = useState<HeroClassId>('knight');
   const [previewSkinTier, setPreviewSkinTier] = useState<SkinTier>('default');
-  const [selectedPet, setSelectedPet] = useState<PetId>('cat');
+  const [selectedPet, setSelectedPet] = useState<PetId>(
+    () => loadProfile().selectedPetId || 'cat'
+  );
   const [selectedDifficulty, setSelectedDifficulty] =
     useState<DifficultyId>('normal');
+  const [selectedGameMode, setSelectedGameMode] =
+    useState<GameModeId>('CAMPAIGN');
 
   const [activeModal, setActiveModal] = useState<
     | 'NONE'
@@ -842,8 +1000,12 @@ export default function App() {
     | 'MOBILE_INSTALL'
     | 'RACE_STUDIO'
     | 'MUSIC_STUDIO'
+    | 'CODEX'
   >('NONE');
   const [shopTab, setShopTab] = useState<'ARMORY' | 'UPGRADES'>('ARMORY');
+  const [codexTab, setCodexTab] = useState<
+    'WEAPONS' | 'BESTIARY' | 'ACHIEVEMENTS'
+  >('WEAPONS');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const { isInstallable, isInstalled, install } = usePWAInstall();
 
@@ -915,7 +1077,13 @@ export default function App() {
       (newState) => setGameState(newState),
       (newHud) => setHud(newHud),
       (choices) => setBoonChoices(choices),
-      (gemsDelta, killsDelta = 0, runWon = false, consumedPreRun = false) => {
+      (
+        gemsDelta,
+        killsDelta = 0,
+        runWon = false,
+        consumedPreRun = false,
+        meta
+      ) => {
         setProfile((prev) => {
           const updatedQuests = prev.dailyQuests.map((q) => {
             if (q.id === 'q_slay_25' && killsDelta > 0) {
@@ -930,6 +1098,12 @@ export default function App() {
                 progress: Math.min(q.target, q.progress + 1),
               };
             }
+            if (q.id === 'q_open_chest' && meta?.chestOpened) {
+              return {
+                ...q,
+                progress: Math.min(q.target, q.progress + 1),
+              };
+            }
             return q;
           });
 
@@ -938,6 +1112,18 @@ export default function App() {
             soulGems: prev.soulGems + gemsDelta,
             totalKills: prev.totalKills + killsDelta,
             runsCompleted: prev.runsCompleted + (runWon ? 1 : 0),
+            bossesDefeated:
+              (prev.bossesDefeated || 0) + (meta?.bossKilled ? 1 : 0),
+            bestEndlessWave: Math.max(
+              prev.bestEndlessWave || 0,
+              meta?.endlessWave || 0
+            ),
+            maxWeaponUpgradeReached: Math.max(
+              prev.maxWeaponUpgradeReached || 0,
+              meta?.maxUpgradeLevel || 0
+            ),
+            chestsOpened:
+              (prev.chestsOpened || 0) + (meta?.chestOpened ? 1 : 0),
             preRunWeapon: consumedPreRun ? null : prev.preRunWeapon,
             preRunPotion: consumedPreRun ? false : prev.preRunPotion,
             dailyQuests: updatedQuests,
@@ -950,6 +1136,9 @@ export default function App() {
     );
     engine.updateProfile(initialProf);
     engine.updateSettings(initialSet);
+    if (initialProf.selectedPetId) {
+      engine.selectPet(initialProf.selectedPetId);
+    }
     engineRef.current = engine;
     engine.start();
 
@@ -1107,6 +1296,10 @@ export default function App() {
   const handleSelectPet = (petId: PetId) => {
     sound.playUiClick(true);
     setSelectedPet(petId);
+    updateAndSaveProfile((prev) => ({
+      ...prev,
+      selectedPetId: petId,
+    }));
     engineRef.current?.selectPet(petId);
   };
 
@@ -1116,12 +1309,33 @@ export default function App() {
     engineRef.current?.selectDifficulty(diff);
   };
 
+  const handleSelectGameMode = (mode: GameModeId) => {
+    sound.playUiClick(true);
+    setSelectedGameMode(mode);
+    engineRef.current?.selectGameMode(mode);
+  };
+
+  const handleClaimAchievement = (achId: string) => {
+    const ach = ACHIEVEMENT_LIST.find((a) => a.id === achId);
+    if (!ach) return;
+    if (profile.claimedAchievements?.includes(achId)) return;
+    if (ach.getValue(profile) < ach.target) return;
+
+    sound.playChing();
+    updateAndSaveProfile((prev) => ({
+      ...prev,
+      soulGems: prev.soulGems + ach.rewardGems,
+      claimedAchievements: [...(prev.claimedAchievements || []), achId],
+    }));
+  };
+
   const handleEnterLivingRoom = () => {
     sound.playUiClick(true);
     const playClass = profile.unlockedHeroes.includes(selectedClass)
       ? selectedClass
       : 'knight';
     setActiveModal('NONE');
+    engineRef.current?.selectGameMode(selectedGameMode);
     engineRef.current?.enterLivingRoom(playClass, selectedDifficulty);
   };
 
@@ -1131,7 +1345,8 @@ export default function App() {
       ? selectedClass
       : 'knight';
     setActiveModal('NONE');
-    engineRef.current?.startNewRun(playClass, selectedDifficulty);
+    engineRef.current?.selectGameMode(selectedGameMode);
+    engineRef.current?.startNewRun(playClass, selectedDifficulty, selectedGameMode);
   };
 
   const handleToggleMute = () => {
@@ -1405,6 +1620,12 @@ export default function App() {
     (q) => !q.claimed && q.progress >= q.target
   ).length;
 
+  const claimableAchievementsCount = ACHIEVEMENT_LIST.filter(
+    (ach) =>
+      !profile.claimedAchievements?.includes(ach.id) &&
+      ach.getValue(profile) >= ach.target
+  ).length;
+
   const currentAvatarInfo =
     AVATAR_LIST.find((a) => a.id === profile.avatarId) || AVATAR_LIST[0];
   const isLargeControls = settings.controlScale === 'large';
@@ -1556,33 +1777,61 @@ export default function App() {
             ))}
           </div>
 
-          {/* ================= TOP BAR: PROFILE + DIFFICULTY + LANGUAGE + GEMS + QUESTS + SETTINGS ================= */}
+          {/* ================= CLEAN COMMERCIAL TOP BAR: 3 ZONES (PROFILE | MODE + DIFFICULTY | GEMS + QUESTS + SETTINGS) ================= */}
           <div className="relative z-10 w-full max-w-6xl flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
-            {/* Left: Player Avatar Button + Difficulty Selector */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => {
-                  sound.playUiClick(true);
-                  setActiveModal('AVATAR');
-                }}
-                className="btn-3d btn-3d-slate flex items-center gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer"
-              >
-                <PixelAvatarGraphic
-                  avatarId={profile.avatarId}
-                  className="w-8 h-8 rounded-lg border border-slate-600 shrink-0"
-                />
-                <div className="text-left">
-                  <div className="text-[11px] font-pixel text-amber-300 leading-tight flex items-center gap-1.5">
-                    <span>{profile.playerName}</span>
-                  </div>
-                  <div className="text-[10px] font-mono-tabular text-slate-300">
-                    {localizedRace.name} · ☠ {profile.totalKills}
-                  </div>
+            {/* Zone 1 (Left): Player Profile Card */}
+            <button
+              onClick={() => {
+                sound.playUiClick(true);
+                setActiveModal('AVATAR');
+              }}
+              className="btn-3d btn-3d-slate flex items-center gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer"
+            >
+              <PixelAvatarGraphic
+                avatarId={profile.avatarId}
+                className="w-8 h-8 rounded-lg border border-slate-600 shrink-0"
+              />
+              <div className="text-left">
+                <div className="text-[11px] font-pixel text-amber-300 leading-tight flex items-center gap-1.5">
+                  <span>{profile.playerName}</span>
                 </div>
-              </button>
+                <div className="text-[10px] font-mono-tabular text-slate-300">
+                  {localizedRace.name} · ☠ {profile.totalKills}
+                </div>
+              </div>
+            </button>
+
+            {/* Zone 2 (Center): 3 Game Modes + Difficulty Switcher */}
+            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+              {/* 3 Game Modes Selector */}
+              <div className="flex items-center gap-1 bg-[#090b10]/95 p-1 rounded-xl border-2 border-slate-800">
+                {(
+                  [
+                    { id: 'CAMPAIGN', label: '🏰 CAMPAIGN', accent: '#38bdf8' },
+                    { id: 'BOSS_RUSH', label: '💀 BOSS RUSH', accent: '#f43f5e' },
+                    { id: 'ENDLESS', label: '♾️ ENDLESS', accent: '#c084fc' },
+                  ] as { id: GameModeId; label: string; accent: string }[]
+                ).map((gm) => {
+                  const active = selectedGameMode === gm.id;
+                  return (
+                    <button
+                      key={gm.id}
+                      onClick={() => handleSelectGameMode(gm.id)}
+                      className={`px-2 py-1 rounded-lg font-pixel text-[9px] sm:text-[10px] transition-all cursor-pointer ${
+                        active
+                          ? 'bg-slate-800 border border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                      style={{ color: active ? gm.accent : undefined }}
+                    >
+                      {gm.label}
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* Difficulty 3D Switcher Pills */}
-              <div className="flex items-center gap-1 bg-[#090b10]/90 p-1 rounded-xl border-2 border-slate-800">
+              <div className="flex items-center gap-1 bg-[#090b10]/95 p-1 rounded-xl border-2 border-slate-800">
                 {(Object.keys(DIFFICULTIES) as DifficultyId[]).map((diffId) => {
                   const dCfg = DIFFICULTIES[diffId];
                   const active = selectedDifficulty === diffId;
@@ -1606,42 +1855,12 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right: Language Quick Switch + Soul Gems + Quests + Settings + Mute */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              {/* Compact Language Pill */}
-              <div className="hidden xl:flex items-center gap-0.5 bg-[#090b10]/95 p-1 rounded-xl border border-slate-800">
-                {LANG_OPTIONS.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => handleSelectLanguage(lang.code)}
-                    className={`px-1.5 py-0.5 rounded font-pixel text-[9px] cursor-pointer ${
-                      settings.language === lang.code
-                        ? 'bg-amber-500 text-slate-950'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {lang.flag} {lang.short}
-                  </button>
-                ))}
-              </div>
-
+            {/* Zone 3 (Right): Soul Gems + Daily Quests + Settings Hub + Sound */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#090b10]/95 border-2 border-sky-500/60 text-sky-300 font-pixel text-xs shadow-[0_4px_0_#0c4a6e]">
                 <SoulGemIcon className="w-4 h-4 shrink-0" />
                 <span>{profile.soulGems}</span>
               </div>
-
-              {!isInstalled && (
-                <button
-                  onClick={() => {
-                    sound.playUiClick(true);
-                    setActiveModal('MOBILE_INSTALL');
-                  }}
-                  className="btn-3d btn-3d-emerald px-2.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1.5 cursor-pointer"
-                >
-                  <PhoneDownloadIcon className="w-4 h-4" />
-                  <span className="hidden md:inline">{t.mobileApp}</span>
-                </button>
-              )}
 
               {/* Daily Quests Scroll Button */}
               <button
@@ -1660,20 +1879,7 @@ export default function App() {
                 )}
               </button>
 
-              {/* 8-Bit Music Studio Button */}
-              <button
-                onClick={() => {
-                  sound.playUiClick(true);
-                  setActiveModal('MUSIC_STUDIO');
-                }}
-                className="btn-3d btn-3d-purple px-2.5 py-1.5 rounded-xl font-pixel text-[10px] flex items-center gap-1 cursor-pointer"
-                title="8-Bit Chiptune Music Studio"
-              >
-                <span>🎵</span>
-                <span className="hidden md:inline">MUSIC</span>
-              </button>
-
-              {/* Settings 3D Button */}
+              {/* Settings Hub Button (Houses Language, 8-Bit Music Studio, Mobile/GitHub) */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
@@ -1698,7 +1904,7 @@ export default function App() {
 
           {/* ================= CENTERPIECE INTERACTIVE LOBBY STAGE ================= */}
           <div className="relative z-10 w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-center my-auto py-1 pointer-events-auto">
-            {/* LEFT DOCK (3 Cols): Race Studio + Gacha Mystery Chest + Blacksmith Armory + Sanctuary */}
+            {/* LEFT DOCK (3 Cols): Race Studio + Mystery Chest Gacha + Armory & Sanctuary + Codex & Achievements */}
             <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 order-2 lg:order-1">
               {/* 1. Race & Appearance Studio Button */}
               <button
@@ -1745,7 +1951,7 @@ export default function App() {
                 </div>
               </button>
 
-              {/* 3. Blacksmith Starter Weapon Armory Button */}
+              {/* 3. Blacksmith Starter Weapon Armory & Sanctuary Upgrades Button */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
@@ -1759,7 +1965,7 @@ export default function App() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-pixel text-[10px] text-slate-950 truncate">
-                    {t.armory}
+                    {t.armory} & {t.sanctuary}
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-900 font-bold truncate mt-0.5">
                     ⚔ {t.weapons[activeStarterWeaponId].name}
@@ -1767,30 +1973,37 @@ export default function App() {
                 </div>
               </button>
 
-              {/* 4. Permanent Stat Sanctuary Upgrades Button */}
+              {/* 4. Dungeon Codex & Achievements Encyclopedia Button */}
               <button
                 onClick={() => {
                   sound.playUiClick(true);
-                  setShopTab('UPGRADES');
-                  setActiveModal('SHOP');
+                  setCodexTab(
+                    claimableAchievementsCount > 0 ? 'ACHIEVEMENTS' : 'WEAPONS'
+                  );
+                  setActiveModal('CODEX');
                 }}
-                className="btn-3d btn-3d-amber p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
+                className="btn-3d btn-3d-amber relative p-2.5 rounded-2xl text-left flex items-center gap-2.5 cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-xl bg-amber-950/85 border-2 border-amber-200 flex items-center justify-center shrink-0">
-                  <ShopPixelIcon className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-xl bg-amber-950/85 border-2 border-amber-200 flex items-center justify-center shrink-0 font-pixel text-sm text-amber-300">
+                  📖
                 </div>
                 <div className="min-w-0">
                   <div className="font-pixel text-[10px] text-slate-950 truncate">
-                    {t.sanctuary}
+                    CODEX & FEATS
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-900 font-bold truncate mt-0.5">
-                    {t.sanctuarySub}
+                    16 Wpns · 3 Bosses · 💎
                   </div>
                 </div>
+                {claimableAchievementsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 border-2 border-white text-white font-pixel text-[9px] flex items-center justify-center animate-bounce">
+                    {claimableAchievementsCount}
+                  </span>
+                )}
               </button>
             </div>
 
-            {/* CENTER STAGE (6 Cols): Title + Interactive Hero Pedestal + Skin & Race Switcher */}
+            {/* CENTER STAGE (6 Cols): Title + Interactive Hero Pedestal + Skin & 4-Pet Switcher */}
             <div className="lg:col-span-6 flex flex-col items-center justify-center order-1 lg:order-2">
               <div className="w-full max-w-[240px] sm:max-w-[280px] -mb-2">
                 <ObsidianTitleLockup />
@@ -1839,7 +2052,12 @@ export default function App() {
                   weaponId={activeStarterWeaponId}
                   lockedBannerText={t.lockedHeroBanner}
                   onCyclePet={() => {
-                    const order: PetId[] = ['cat', 'mini_slime', 'baby_dragon'];
+                    const order: PetId[] = [
+                      'cat',
+                      'mini_slime',
+                      'baby_dragon',
+                      'cyber_neko',
+                    ];
                     const nextPet =
                       order[(order.indexOf(selectedPet) + 1) % order.length];
                     handleSelectPet(nextPet);
@@ -1847,7 +2065,7 @@ export default function App() {
                 />
               </div>
 
-              {/* SKIN SELECTOR [ < ] SKIN NAME [ > ] & PET SWITCHER */}
+              {/* SKIN SELECTOR [ < ] SKIN NAME [ > ] & 4-PET SWITCHER WITH PASSIVE */}
               <div className="w-full max-w-md flex flex-col items-center gap-1.5">
                 <div className="flex items-center gap-2 bg-[#090b10]/95 px-2.5 py-1.5 rounded-xl border-2 border-slate-800 shadow-lg">
                   <button
@@ -1881,7 +2099,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Unlock Hero / Unlock Skin / Companion Pet Row */}
+                {/* Unlock Hero / Unlock Skin / 4 Companion Pets Row */}
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   {isHeroLocked && (
                     <button
@@ -1909,9 +2127,9 @@ export default function App() {
                     </button>
                   )}
 
-                  {/* Pet Selector Pill */}
-                  <div className="flex items-center gap-1 bg-[#090b10]/90 px-2.5 py-1 rounded-xl border border-slate-800 text-[10px] font-mono-tabular">
-                    <span className="text-slate-400">🐾 Pet:</span>
+                  {/* 4-Pet Selector Pill + Passive Bonus */}
+                  <div className="flex items-center gap-1 bg-[#090b10]/90 px-2.5 py-1 rounded-xl border border-slate-800 text-[10px] font-mono-tabular flex-wrap justify-center">
+                    <span className="text-slate-400">🐾</span>
                     {(Object.keys(PETS) as PetId[]).map((pid) => (
                       <button
                         key={pid}
@@ -1925,6 +2143,9 @@ export default function App() {
                         {PETS[pid].name.split(' ')[0]}
                       </button>
                     ))}
+                    <span className="text-emerald-400 font-bold ml-1">
+                      ({PETS[selectedPet]?.passiveDesc})
+                    </span>
                   </div>
                 </div>
               </div>
@@ -3035,7 +3256,29 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-between gap-2">
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => {
+                    sound.playUiClick(true);
+                    setActiveModal('MOBILE_INSTALL');
+                  }}
+                  className="btn-3d btn-3d-emerald flex-1 py-2.5 px-3 rounded-xl font-pixel text-[10px] flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <PhoneDownloadIcon className="w-4 h-4" />
+                  <span>{t.mobileApp} / GITHUB</span>
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playUiClick(true);
+                    setActiveModal('CODEX');
+                  }}
+                  className="btn-3d btn-3d-amber py-2.5 px-3 rounded-xl font-pixel text-[10px] cursor-pointer"
+                >
+                  📖 CODEX
+                </button>
+              </div>
+
+              <div className="pt-1 flex items-center justify-between gap-2">
                 <button
                   onClick={() => {
                     sound.playChing();
@@ -3058,6 +3301,239 @@ export default function App() {
                   {t.resetSaveBtn}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          MODAL 5B: DUNGEON CODEX & ACHIEVEMENTS (16 Weapons, Bestiary, 8 Feats)
+         ===================================================================== */}
+      {activeModal === 'CODEX' && (
+        <div className="absolute inset-0 z-30 bg-[#06080d]/92 flex items-center justify-center p-3 sm:p-5">
+          <div className="animate-modal-pop w-full max-w-5xl max-h-[90vh] flex flex-col bg-[#090b10] border-2 border-amber-400 rounded-2xl p-4 sm:p-6 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
+              <div>
+                <h2 className="font-pixel text-xs sm:text-base text-amber-400">
+                  📖 DUNGEON CODEX & HALL OF ACHIEVEMENTS
+                </h2>
+                <p className="text-xs font-mono-tabular text-slate-400 mt-1">
+                  Inspect all 16 Weapons, 8 Dungeon Foes & 3 Biome Bosses, and claim Soul Gem Feats!
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-sky-500/40 text-sky-300 font-pixel text-xs">
+                  <SoulGemIcon className="w-4 h-4" />
+                  <span>{profile.soulGems}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    sound.playUiClick(false);
+                    setActiveModal('NONE');
+                  }}
+                  className="btn-3d btn-3d-slate px-3 py-1.5 rounded-lg font-pixel text-[10px] cursor-pointer"
+                >
+                  {t.closeBtn}
+                </button>
+              </div>
+            </div>
+
+            {/* 3 Tabs */}
+            <div className="flex items-center gap-2 my-3 flex-wrap">
+              <button
+                onClick={() => {
+                  sound.playUiClick(true);
+                  setCodexTab('WEAPONS');
+                }}
+                className={`btn-3d px-4 py-2 rounded-xl font-pixel text-[10px] cursor-pointer ${
+                  codexTab === 'WEAPONS' ? 'btn-3d-cyan' : 'btn-3d-slate'
+                }`}
+              >
+                ⚔ WEAPONS ({profile.unlockedWeapons.length}/16)
+              </button>
+              <button
+                onClick={() => {
+                  sound.playUiClick(true);
+                  setCodexTab('BESTIARY');
+                }}
+                className={`btn-3d px-4 py-2 rounded-xl font-pixel text-[10px] cursor-pointer ${
+                  codexTab === 'BESTIARY' ? 'btn-3d-purple' : 'btn-3d-slate'
+                }`}
+              >
+                💀 BESTIARY & 3 BOSSES
+              </button>
+              <button
+                onClick={() => {
+                  sound.playUiClick(true);
+                  setCodexTab('ACHIEVEMENTS');
+                }}
+                className={`btn-3d relative px-4 py-2 rounded-xl font-pixel text-[10px] cursor-pointer ${
+                  codexTab === 'ACHIEVEMENTS' ? 'btn-3d-amber' : 'btn-3d-slate'
+                }`}
+              >
+                🏆 ACHIEVEMENTS
+                {claimableAchievementsCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[9px]">
+                    {claimableAchievementsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {codexTab === 'WEAPONS' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {(Object.keys(WEAPONS) as WeaponId[]).map((wId) => {
+                    const w = WEAPONS[wId];
+                    const locW = t.weapons[wId];
+                    const unlocked = profile.unlockedWeapons.includes(wId);
+                    return (
+                      <div
+                        key={wId}
+                        className={`p-3 rounded-xl bg-[#111726] border-2 flex flex-col justify-between ${
+                          unlocked ? 'border-slate-700' : 'border-slate-800/60 opacity-75'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <WeaponMiniSprite weaponId={wId} />
+                            <span
+                              className="text-[9px] font-pixel px-2 py-0.5 rounded bg-slate-900"
+                              style={{ color: w.rarityColor }}
+                            >
+                              {w.rarity}
+                            </span>
+                          </div>
+                          <div
+                            className="font-pixel text-xs truncate"
+                            style={{ color: w.rarityColor }}
+                          >
+                            {locW.name}
+                          </div>
+                          <div className="text-[11px] font-mono-tabular text-slate-300 mt-1">
+                            DMG {w.damage} · {w.manaCost} MP ·{' '}
+                            {w.canDeflect ? '⚡ Deflect' : w.type.toUpperCase()}
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                            {locW.desc}
+                          </p>
+                        </div>
+                        <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono-tabular">
+                          <span className={unlocked ? 'text-emerald-400 font-bold' : 'text-amber-300'}>
+                            {unlocked ? '✓ DISCOVERED' : `🔒 ${w.shopGemsCost} 💎`}
+                          </span>
+                          <span className="text-slate-400">Anvil: Up to +3★</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {codexTab === 'BESTIARY' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {BESTIARY_ENTRIES.map((en) => (
+                    <div
+                      key={en.type}
+                      className={`p-3 rounded-xl bg-[#111726] border-2 flex flex-col justify-between ${
+                        en.isBoss
+                          ? 'border-rose-500/60 shadow-[0_0_16px_rgba(244,63,94,0.18)]'
+                          : 'border-slate-800'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <EnemyMiniSprite enemyType={en.type} />
+                          <div className="text-right">
+                            <span
+                              className="text-[9px] font-pixel px-2 py-0.5 rounded bg-slate-900"
+                              style={{ color: en.accent }}
+                            >
+                              {en.role}
+                            </span>
+                            <div className="text-[10px] font-mono-tabular text-slate-400 mt-1">
+                              {en.biome}
+                            </div>
+                          </div>
+                        </div>
+                        <div
+                          className="font-pixel text-xs"
+                          style={{ color: en.accent }}
+                        >
+                          {en.name}
+                        </div>
+                        <div className="text-[11px] font-mono-tabular text-slate-300 mt-1">
+                          HP {en.hp} · ATK {en.dmg}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                          {en.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {codexTab === 'ACHIEVEMENTS' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {ACHIEVEMENT_LIST.map((ach) => {
+                    const curVal = ach.getValue(profile);
+                    const completed = curVal >= ach.target;
+                    const claimed = profile.claimedAchievements?.includes(ach.id);
+                    const pct = Math.min(
+                      100,
+                      Math.round((curVal / ach.target) * 100)
+                    );
+                    return (
+                      <div
+                        key={ach.id}
+                        className="p-3.5 rounded-xl bg-[#111726] border-2 border-slate-800 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="font-pixel text-xs"
+                            style={{ color: ach.accent }}
+                          >
+                            {ach.title}
+                          </div>
+                          <div className="text-xs font-mono-tabular text-slate-400 mt-0.5">
+                            {ach.desc}
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 mt-2">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <div className="text-[10px] font-mono-tabular text-slate-400 mt-1">
+                            {curVal} / {ach.target}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleClaimAchievement(ach.id)}
+                          disabled={!completed || claimed}
+                          className={`btn-3d min-h-[40px] px-3.5 py-2 rounded-xl font-pixel text-[10px] shrink-0 cursor-pointer ${
+                            claimed
+                              ? 'btn-3d-slate'
+                              : completed
+                              ? 'btn-3d-emerald'
+                              : 'btn-3d-amber'
+                          }`}
+                        >
+                          {claimed
+                            ? t.claimedBtn
+                            : completed
+                            ? `${t.claimBtn} +${ach.rewardGems} 💎`
+                            : `+${ach.rewardGems} 💎`}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3466,8 +3942,34 @@ export default function App() {
               </div>
             </div>
 
-            {/* Top-Center: Boss Bar, Living Room Banner, or Interactive Pickup/Shop Prompt */}
+            {/* Top-Center: Stage Intro Banner, Boss Warning Siren, Boss Bar, Living Room Banner, or Interactive Prompt */}
             <div className="flex flex-col items-center gap-1.5 max-w-xs sm:max-w-md w-full px-1">
+              {hud.stageBannerTimer > 0 && !hud.inLivingRoom && (
+                <div className="animate-modal-pop w-full bg-[#090b10]/95 border-2 border-amber-400 rounded-2xl px-4 py-2 text-center shadow-[0_0_30px_rgba(245,158,11,0.35)]">
+                  <div className="text-[10px] font-pixel text-amber-300 tracking-widest">
+                    {hud.gameMode === 'ENDLESS'
+                      ? `♾️ ENDLESS ARENA · STAGE ${hud.floor}`
+                      : hud.gameMode === 'BOSS_RUSH'
+                      ? `💀 BOSS GAUNTLET · STAGE 1-${hud.floor}`
+                      : `STAGE 1-${hud.floor} ENTERED`}
+                  </div>
+                  <div className="text-xs sm:text-sm font-pixel text-white mt-0.5">
+                    {hud.biomeName}
+                  </div>
+                </div>
+              )}
+
+              {hud.bossWarningTimer > 0 && (
+                <div className="animate-bounce w-full bg-rose-950/95 border-2 border-rose-500 rounded-2xl px-4 py-2 text-center shadow-[0_0_35px_rgba(244,63,94,0.65)]">
+                  <div className="text-xs font-pixel text-rose-300 tracking-wider">
+                    ⚠️ WARNING: BOSS APPROACHING ⚠️
+                  </div>
+                  <div className="text-[10px] font-mono-tabular text-amber-200 mt-0.5">
+                    {hud.bossName || hud.biomeName}
+                  </div>
+                </div>
+              )}
+
               {hud.inLivingRoom && !hud.promptText && (
                 <div className="bg-[#090b10]/90 border border-slate-800 rounded-xl px-3.5 py-1.5 text-center">
                   <div className="text-xs font-pixel text-amber-400">
@@ -3520,14 +4022,16 @@ export default function App() {
               )}
             </div>
 
-            {/* Top-Right: Soul Knight 3x3 Megamap + Wave & Combo Badges + Settings/Pause */}
+            {/* Top-Right: Soul Knight 3x3 Fast-Travel Megamap + Wave & Combo Badges + Settings/Pause */}
             <div className="pointer-events-auto flex items-start gap-2">
               {!hud.inLivingRoom && (
                 <div className="bg-[#090b10]/92 border border-slate-800 rounded-xl p-2 shadow-lg">
                   <div className="flex items-center justify-between gap-2 text-[11px] font-mono-tabular text-slate-300 mb-1">
                     <span className="flex items-center gap-1 font-bold text-purple-300">
                       <StairsPixelIcon className="w-3.5 h-3.5" />
-                      1-{hud.floor}
+                      {hud.gameMode === 'ENDLESS'
+                        ? `W-${hud.floor}`
+                        : `1-${hud.floor}`}
                     </span>
                     <span
                       className={
@@ -3546,8 +4050,8 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* 3x3 Room Grid Minimap (9 Rooms) */}
-                  <div className="grid grid-cols-3 gap-1 w-[78px] h-[68px] p-1 bg-slate-950 rounded border border-slate-800">
+                  {/* 3x3 Room Grid Minimap with Click-to-Teleport Fast Travel */}
+                  <div className="grid grid-cols-3 gap-1 w-[82px] h-[72px] p-1 bg-slate-950 rounded border border-slate-800">
                     {[0, 1, 2].map((gy) =>
                       [0, 1, 2].map((gx) => {
                         const rm = hud.minimapRooms.find(
@@ -3573,17 +4077,44 @@ export default function App() {
                           bg = 'bg-purple-400/80';
                         else if (rm.cleared) bg = 'bg-emerald-500/60';
 
+                        const canFastTravel =
+                          !hud.roomLocked &&
+                          !rm.isCurrent &&
+                          (rm.cleared || rm.visited);
+
                         return (
-                          <div
+                          <button
                             key={rm.id}
-                            className={`rounded-xs ${bg} ${
+                            type="button"
+                            disabled={!canFastTravel}
+                            onClick={() => {
+                              if (canFastTravel) {
+                                engineRef.current?.teleportToRoom(rm.id);
+                              }
+                            }}
+                            title={
+                              canFastTravel
+                                ? `Fast Travel: ${rm.kind.replace('_', ' ')}`
+                                : rm.kind.replace('_', ' ')
+                            }
+                            className={`rounded-xs transition-transform ${bg} ${
                               rm.isCurrent ? 'ring-1 ring-white' : ''
+                            } ${
+                              canFastTravel
+                                ? 'cursor-pointer hover:scale-110 hover:ring-1 hover:ring-amber-300'
+                                : 'cursor-default'
                             }`}
                           />
                         );
                       })
                     )}
                   </div>
+
+                  {!hud.roomLocked && (
+                    <div className="text-[8px] font-mono-tabular text-slate-400 text-center mt-0.5">
+                      TAP ROOM TO TELEPORT
+                    </div>
+                  )}
 
                   {hud.comboCount >= 2 && (
                     <div className="mt-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400 text-amber-300 font-pixel text-[9px] text-center animate-pulse">
@@ -3669,7 +4200,7 @@ export default function App() {
 
             {/* Bottom-Right: Soul Knight Dual-Weapon Switch + Skill + Dash + Fire Cluster */}
             <div className="pointer-events-auto flex flex-col items-end gap-2">
-              {/* Weapon Switch Slot Bar */}
+              {/* Weapon Switch Slot Bar (Shows Anvil +1/+2/+3 ★ Upgrade Level) */}
               <button
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -3683,18 +4214,40 @@ export default function App() {
                     className="text-xs font-mono-tabular font-bold leading-tight whitespace-nowrap flex items-center gap-1"
                     style={{ color: hud.activeWeapon.rarityColor }}
                   >
-                    <span>{t.weapons[hud.activeWeapon.id]?.name || hud.activeWeapon.name}</span>
+                    <span>
+                      {t.weapons[hud.activeWeapon.id]?.name ||
+                        hud.activeWeapon.name}
+                    </span>
+                    {hud.activeWeaponUpgrade > 0 && (
+                      <span className="px-1 py-0.2 rounded bg-amber-500/25 border border-amber-400 text-amber-300 font-pixel text-[9px]">
+                        +{hud.activeWeaponUpgrade}★
+                      </span>
+                    )}
                     {hud.activeWeapon.canDeflect && (
                       <span className="text-[9px] text-amber-300">⚡</span>
                     )}
                   </div>
                   <div className="text-[10px] font-mono-tabular text-slate-400">
-                    DMG {hud.activeWeapon.damage} ·{' '}
+                    DMG{' '}
+                    {Math.round(
+                      hud.activeWeapon.damage *
+                        (1 + hud.activeWeaponUpgrade * 0.22)
+                    )}{' '}
+                    ·{' '}
                     <span className="text-blue-400 font-bold">
                       {hud.activeWeapon.manaCost} MP
                     </span>
                     {hud.secondaryWeapon
-                      ? ` · ${t.secondaryLabel}: ${(t.weapons[hud.secondaryWeapon.id]?.name || hud.secondaryWeapon.name).split(' ')[0]}`
+                      ? ` · ${t.secondaryLabel}: ${
+                          (
+                            t.weapons[hud.secondaryWeapon.id]?.name ||
+                            hud.secondaryWeapon.name
+                          ).split(' ')[0]
+                        }${
+                          hud.secondaryWeaponUpgrade > 0
+                            ? ` +${hud.secondaryWeaponUpgrade}★`
+                            : ''
+                        }`
                       : ''}
                   </div>
                 </div>

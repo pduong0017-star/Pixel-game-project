@@ -6,6 +6,7 @@ import {
   HeroClassId,
   HornStyle,
   LanguageCode,
+  PetId,
   PlayerProfile,
   RaceConfig,
   RaceCustomization,
@@ -14,6 +15,107 @@ import {
   WeaponId,
   WingStyle,
 } from './types';
+
+export interface AchievementDef {
+  id: string;
+  title: string;
+  desc: string;
+  target: number;
+  rewardGems: number;
+  accent: string;
+  metric:
+    | 'totalKills'
+    | 'bossesDefeated'
+    | 'runsCompleted'
+    | 'maxWeaponUpgradeReached'
+    | 'unlockedWeaponsCount'
+    | 'bestEndlessWave'
+    | 'chestsOpened';
+  getValue: (p: PlayerProfile) => number;
+}
+
+export const ACHIEVEMENT_LIST: AchievementDef[] = [
+  {
+    id: 'ach_slayer_50',
+    title: 'Đồ Tể Hầm Ngục I / Dungeon Slayer I',
+    desc: 'Tiêu diệt tổng cộng 50 quái vật trong hầm ngục (Slay 50 foes)',
+    target: 50,
+    rewardGems: 250,
+    accent: '#4ade80',
+    metric: 'totalKills',
+    getValue: (p) => p.totalKills || 0,
+  },
+  {
+    id: 'ach_slayer_250',
+    title: 'Chiến Thần Vực Thẳm / Abyssal Warlord',
+    desc: 'Tiêu diệt tổng cộng 250 quái vật (Slay 250 foes)',
+    target: 250,
+    rewardGems: 500,
+    accent: '#f43f5e',
+    metric: 'totalKills',
+    getValue: (p) => p.totalKills || 0,
+  },
+  {
+    id: 'ach_boss_hunter_3',
+    title: 'Kẻ Săn Đại Boss / Arch-Boss Hunter',
+    desc: 'Hạ gục 3 Đại Boss canh giữ các Tầng Hầm Ngục (Defeat 3 Bosses)',
+    target: 3,
+    rewardGems: 400,
+    accent: '#fb923c',
+    metric: 'bossesDefeated',
+    getValue: (p) => p.bossesDefeated || 0,
+  },
+  {
+    id: 'ach_blacksmith_3',
+    title: 'Thần Rèn Huyền Thoại / Master Blacksmith',
+    desc: 'Đập vũ khí lên cấp tối đa +3 ★ tại Đe Thợ Rèn (Reforge a weapon to +3 ★)',
+    target: 3,
+    rewardGems: 350,
+    accent: '#fde047',
+    metric: 'maxWeaponUpgradeReached',
+    getValue: (p) => p.maxWeaponUpgradeReached || 0,
+  },
+  {
+    id: 'ach_collector_8',
+    title: 'Bậc Thầy Vũ Khí / Master Collector',
+    desc: 'Sở hữu ít nhất 8 Vũ Khí trong Xưởng Rèn (Unlock 8 Weapons)',
+    target: 8,
+    rewardGems: 350,
+    accent: '#38bdf8',
+    metric: 'unlockedWeaponsCount',
+    getValue: (p) => p.unlockedWeapons?.length || 0,
+  },
+  {
+    id: 'ach_collector_16',
+    title: 'Kho Tàng Bách Binh / Grand Arsenal 16/16',
+    desc: 'Mở khóa toàn bộ 16/16 Vũ Khí Huyền Thoại (Unlock all 16 Weapons)',
+    target: 16,
+    rewardGems: 800,
+    accent: '#c084fc',
+    metric: 'unlockedWeaponsCount',
+    getValue: (p) => p.unlockedWeapons?.length || 0,
+  },
+  {
+    id: 'ach_endless_5',
+    title: 'Đấu Sĩ Vô Tận / Colosseum Champion',
+    desc: 'Sống sót qua Đợt 5 trong chế độ Đấu Trường Vô Tận (Reach Endless Wave 5)',
+    target: 5,
+    rewardGems: 450,
+    accent: '#a855f7',
+    metric: 'bestEndlessWave',
+    getValue: (p) => p.bestEndlessWave || 0,
+  },
+  {
+    id: 'ach_victor_1',
+    title: 'Chinh Phục Hắc Thạch / Obsidian Conqueror',
+    desc: 'Hoàn thành chiến dịch hoặc Boss Rush 1 lần (Complete a full run)',
+    target: 1,
+    rewardGems: 500,
+    accent: '#f59e0b',
+    metric: 'runsCompleted',
+    getValue: (p) => p.runsCompleted || 0,
+  },
+];
 
 const PROFILE_KEY = 'obsidian_soul_knight_profile_v4';
 const SETTINGS_KEY = 'obsidian_soul_knight_settings_v4';
@@ -190,6 +292,11 @@ export const DEFAULT_PROFILE: PlayerProfile = {
   totalKills: 12,
   runsCompleted: 0,
   chestsOpened: 0,
+  bossesDefeated: 0,
+  bestEndlessWave: 0,
+  maxWeaponUpgradeReached: 0,
+  claimedAchievements: [],
+  selectedPetId: 'cat',
   upgrades: {
     hpLevel: 0,
     armorLevel: 0,
@@ -359,6 +466,19 @@ export function loadProfile(): PlayerProfile {
       totalKills: safeNum(parsed.totalKills, DEFAULT_PROFILE.totalKills),
       runsCompleted: safeNum(parsed.runsCompleted, 0),
       chestsOpened: safeNum(parsed.chestsOpened, 0),
+      bossesDefeated: safeNum(parsed.bossesDefeated, 0),
+      bestEndlessWave: safeNum(parsed.bestEndlessWave, 0),
+      maxWeaponUpgradeReached: safeNum(parsed.maxWeaponUpgradeReached, 0),
+      claimedAchievements: Array.isArray(parsed.claimedAchievements)
+        ? parsed.claimedAchievements.filter((x: unknown) => typeof x === 'string')
+        : [],
+      selectedPetId:
+        parsed.selectedPetId === 'cat' ||
+        parsed.selectedPetId === 'mini_slime' ||
+        parsed.selectedPetId === 'baby_dragon' ||
+        parsed.selectedPetId === 'cyber_neko'
+          ? (parsed.selectedPetId as PetId)
+          : 'cat',
       upgrades: {
         hpLevel: safeNum(upg.hpLevel, 0),
         armorLevel: safeNum(upg.armorLevel, 0),
@@ -421,6 +541,7 @@ export function loadProfile(): PlayerProfile {
 function structuredCloneFallback(prof: PlayerProfile): PlayerProfile {
   return {
     ...prof,
+    claimedAchievements: [...(prof.claimedAchievements || [])],
     upgrades: { ...prof.upgrades },
     unlockedHeroes: [...prof.unlockedHeroes],
     unlockedSkins: {

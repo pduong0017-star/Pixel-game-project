@@ -25,6 +25,7 @@ import {
   DungeonTile,
   Enemy,
   FloatingText,
+  GameModeId,
   GameSettings,
   GameState,
   GhostTrail,
@@ -60,6 +61,10 @@ export class IsometricGameEngine {
   public selectedSkinTier: SkinTier = 'default';
   public selectedPet: PetId = 'cat';
   public selectedDifficulty: DifficultyId = 'normal';
+  public selectedGameMode: GameModeId = 'CAMPAIGN';
+
+  private stageBannerTimer: number = 0;
+  private bossWarningTimer: number = 0;
 
   private profile: PlayerProfile = { ...DEFAULT_PROFILE };
   private settings: GameSettings = { ...DEFAULT_SETTINGS };
@@ -71,7 +76,13 @@ export class IsometricGameEngine {
     gems: number,
     killsDelta?: number,
     runWon?: boolean,
-    consumedPreRunItems?: boolean
+    consumedPreRunItems?: boolean,
+    meta?: {
+      bossKilled?: boolean;
+      maxUpgradeLevel?: number;
+      endlessWave?: number;
+      chestOpened?: boolean;
+    }
   ) => void;
 
   private floorNum: number = 1;
@@ -105,6 +116,7 @@ export class IsometricGameEngine {
     damageMultiplier: 1.0,
     attackSpeedMultiplier: 1.0,
     weapons: ['broadsword', 'pioneer_pistol'] as [WeaponId, WeaponId | null],
+    weaponUpgrades: [0, 0] as [number, number],
     activeWeaponIdx: 0 as 0 | 1,
     statueBlessing: null as 'paladin' | 'sorcerer' | 'berserker' | null,
     attackCooldown: 0,
@@ -200,7 +212,13 @@ export class IsometricGameEngine {
       gems: number,
       killsDelta?: number,
       runWon?: boolean,
-      consumedPreRunItems?: boolean
+      consumedPreRunItems?: boolean,
+      meta?: {
+        bossKilled?: boolean;
+        maxUpgradeLevel?: number;
+        endlessWave?: number;
+        chestOpened?: boolean;
+      }
     ) => void
   ) {
     this.canvas = canvas;
@@ -261,6 +279,9 @@ export class IsometricGameEngine {
 
   public updateProfile(profile: PlayerProfile) {
     this.profile = profile;
+    if (profile.selectedPetId && PETS[profile.selectedPetId]) {
+      this.selectedPet = profile.selectedPetId;
+    }
   }
 
   public updateSettings(settings: GameSettings) {
@@ -271,6 +292,38 @@ export class IsometricGameEngine {
 
   public selectDifficulty(diff: DifficultyId) {
     this.selectedDifficulty = diff;
+    this.syncHud();
+  }
+
+  public selectGameMode(mode: GameModeId) {
+    this.selectedGameMode = mode;
+    sound.playUiClick(true);
+    this.syncHud();
+  }
+
+  public teleportToRoom(roomId: number) {
+    if (this.dungeon.inLivingRoom || this.gameState !== 'PLAYING') return;
+    const curRoom = this.getCurrentRoom(this.player.gx, this.player.gy);
+    if (curRoom?.locked) return;
+    const targetRoom = this.dungeon.rooms.find((r) => r.id === roomId);
+    if (!targetRoom || (!targetRoom.cleared && !targetRoom.visited)) return;
+
+    this.player.gx = targetRoom.cx;
+    this.player.gy = targetRoom.cy;
+    this.player.moveTarget = null;
+    this.pet.gx = targetRoom.cx - 1.0;
+    this.pet.gy = targetRoom.cy + 0.5;
+    this.revealFogAround(this.player.gx, this.player.gy, 10.0);
+    sound.playDash();
+    this.spawnParticles(this.player.gx, this.player.gy, 10, 22, '#38bdf8', 3.8);
+    this.addFloatingText(
+      this.player.gx,
+      this.player.gy,
+      28,
+      '⚡ TELEPORT!',
+      '#38bdf8',
+      1.15
+    );
     this.syncHud();
   }
 
@@ -480,10 +533,15 @@ export class IsometricGameEngine {
     const raceCfg =
       RACES[this.profile.raceCustom?.raceId || 'human'] || RACES.human;
 
+    const petManaBonus = this.selectedPet === 'mini_slime' ? 25 : 0;
+    const petCritBonus = this.selectedPet === 'cat' ? 0.08 : 0;
+    const petDmgMult = this.selectedPet === 'baby_dragon' ? 1.12 : 1.0;
+
     const bonusHp = upg.hpLevel * 15 + raceCfg.hpBonus;
     const bonusArmor = upg.armorLevel * 8 + raceCfg.armorBonus;
-    const bonusMana = upg.manaLevel * 25 + raceCfg.manaBonus;
-    const bonusDmgMult = 1 + upg.dmgLevel * 0.08 + raceCfg.dmgBonus;
+    const bonusMana = upg.manaLevel * 25 + raceCfg.manaBonus + petManaBonus;
+    const bonusDmgMult =
+      (1 + upg.dmgLevel * 0.08 + raceCfg.dmgBonus) * petDmgMult;
     const bonusGold = upg.goldLevel * 20;
 
     this.player.maxHp = cfg.maxHp + bonusHp;
@@ -492,14 +550,18 @@ export class IsometricGameEngine {
     this.player.armor = this.player.maxArmor;
     this.player.maxMana = cfg.maxMana + bonusMana;
     this.player.mana = this.player.maxMana;
-    this.player.critChance = Math.min(0.85, cfg.critChance + raceCfg.critBonus);
+    this.player.critChance = Math.min(
+      0.88,
+      cfg.critChance + raceCfg.critBonus + petCritBonus
+    );
     this.player.moveSpeed = cfg.moveSpeed + raceCfg.speedBonus;
     this.player.damageMultiplier = bonusDmgMult;
     this.player.attackSpeedMultiplier = 1.0;
     this.player.maxSkillCooldown = cfg.skillCooldown;
     this.player.maxUltCooldown = cfg.ultCooldown || 10.0;
     this.player.ultCooldown = 0;
-    this.player.gold = 30 + bonusGold;
+    this.player.gold =
+      30 + bonusGold + (this.selectedGameMode === 'BOSS_RUSH' ? 45 : 0);
 
     this.selectedSkinTier = this.profile.selectedSkins?.[cls] || 'default';
 
@@ -513,6 +575,7 @@ export class IsometricGameEngine {
         : cfg.secondaryWeaponId;
 
     this.player.weapons = [primaryWpn, secondaryWpn];
+    this.player.weaponUpgrades = [0, 0];
     this.player.activeWeaponIdx = 0;
     this.player.potions = 2 + (this.profile.preRunPotion ? 1 : 0);
     this.player.maxPotions = 4;
@@ -530,6 +593,7 @@ export class IsometricGameEngine {
 
   public selectPet(petId: PetId) {
     this.selectedPet = petId;
+    this.applyHeroStatsAndUpgrades(this.selectedClass);
     sound.playExpCoin();
     this.addFloatingText(
       this.pet.gx,
@@ -552,6 +616,8 @@ export class IsometricGameEngine {
     this.floorNum = 1;
     this.portalOpen = true;
     this.soulGemsEarnedThisRun = 0;
+    this.stageBannerTimer = 0;
+    this.bossWarningTimer = 0;
 
     this.player = {
       gx: 11.5,
@@ -573,6 +639,7 @@ export class IsometricGameEngine {
       damageMultiplier: 1.0,
       attackSpeedMultiplier: 1.0,
       weapons: ['broadsword', 'pioneer_pistol'],
+      weaponUpgrades: [0, 0],
       activeWeaponIdx: 0,
       statueBlessing: null,
       attackCooldown: 0,
@@ -656,10 +723,28 @@ export class IsometricGameEngine {
     sound.playStairsDescend();
   }
 
+  private getBiomeName(floor: number): string {
+    if (this.selectedGameMode === 'BOSS_RUSH') {
+      return `BOSS RUSH ARENA 1-${floor}`;
+    }
+    if (this.selectedGameMode === 'ENDLESS') {
+      return `ENDLESS COLOSSEUM · WAVE ${floor}`;
+    }
+    if (floor === 1) return 'OBSIDIAN CRYPT';
+    if (floor === 2) return 'FROSTBITE CAVERN';
+    return 'INFERNO MAGMA CORE';
+  }
+
   private loadFloor(floorNum: number) {
     this.floorNum = floorNum;
-    this.dungeon = generateDungeonFloor(floorNum, this.selectedDifficulty);
+    this.dungeon = generateDungeonFloor(
+      floorNum,
+      this.selectedDifficulty,
+      this.selectedGameMode
+    );
     this.portalOpen = false;
+    this.stageBannerTimer = 2.4;
+    this.bossWarningTimer = 0;
     this.player.gx = this.dungeon.spawnGx;
     this.player.gy = this.dungeon.spawnGy;
     this.player.moveTarget = null;
@@ -677,11 +762,15 @@ export class IsometricGameEngine {
     this.camX = scr.x;
     this.camY = scr.y;
 
+    if (this.selectedGameMode === 'ENDLESS') {
+      this.onEarnSoulGems?.(0, 0, false, false, { endlessWave: floorNum });
+    }
+
     this.addFloatingText(
       this.player.gx,
       this.player.gy,
       28,
-      `STAGE 1-${floorNum} (${DIFFICULTIES[this.selectedDifficulty].name.toUpperCase()})`,
+      `STAGE 1-${floorNum} · ${this.getBiomeName(floorNum)}`,
       DIFFICULTIES[this.selectedDifficulty].accent,
       1.25
     );
@@ -828,6 +917,12 @@ export class IsometricGameEngine {
   private update(dt: number, now: number) {
     this.globalTime += dt;
     this.portalAngle += dt * 3.8;
+    if (this.stageBannerTimer > 0) {
+      this.stageBannerTimer = Math.max(0, this.stageBannerTimer - dt);
+    }
+    if (this.bossWarningTimer > 0) {
+      this.bossWarningTimer = Math.max(0, this.bossWarningTimer - dt);
+    }
 
     if (
       this.gameState === 'SPLASH_TITLE' ||
@@ -987,11 +1082,73 @@ export class IsometricGameEngine {
       prop.gy,
       8,
       6,
-      prop.kind === 'crate' ? '#d97706' : '#06b6d4',
+      prop.kind === 'crate'
+        ? '#d97706'
+        : prop.kind === 'explosive_barrel'
+        ? '#ef4444'
+        : '#06b6d4',
       2.4
     );
 
     if (prop.hp <= 0) {
+      if (prop.kind === 'explosive_barrel') {
+        sound.playHit(true, true);
+        this.addShake(9.5);
+        this.spawnParticles(prop.gx, prop.gy, 12, 36, '#f97316', 5.2);
+        this.spawnParticles(prop.gx, prop.gy, 16, 20, '#fde047', 4.0);
+        this.addFloatingText(
+          prop.gx,
+          prop.gy,
+          28,
+          '💥 BARREL BLAST!',
+          '#f97316',
+          1.25
+        );
+        const blastDmg = 75 + this.floorNum * 18;
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - prop.gx, en.gy - prop.gy);
+          if (d <= 3.8) {
+            en.burnTimer = 4.0;
+            this.damageEnemy(
+              en,
+              blastDmg,
+              (en.gx - prop.gx) / (d || 1),
+              (en.gy - prop.gy) / (d || 1)
+            );
+          }
+        }
+        return;
+      }
+
+      if (prop.kind === 'cryo_barrel') {
+        sound.playHit(true, false);
+        this.addShake(7.5);
+        this.spawnParticles(prop.gx, prop.gy, 12, 34, '#38bdf8', 4.8);
+        this.spawnParticles(prop.gx, prop.gy, 16, 18, '#e0f2fe', 3.6);
+        this.addFloatingText(
+          prop.gx,
+          prop.gy,
+          28,
+          '❄️ CRYO SHATTER!',
+          '#38bdf8',
+          1.22
+        );
+        const cryoDmg = 55 + this.floorNum * 15;
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - prop.gx, en.gy - prop.gy);
+          if (d <= 3.8) {
+            en.chillTimer = 4.5;
+            this.damageEnemy(
+              en,
+              cryoDmg,
+              (en.gx - prop.gx) / (d || 1),
+              (en.gy - prop.gy) / (d || 1)
+            );
+          }
+        }
+        return;
+      }
+
       this.spawnParticles(
         prop.gx,
         prop.gy,
@@ -1070,6 +1227,8 @@ export class IsometricGameEngine {
           en.state = 'chase';
           if (en.isBoss) {
             sound.startBgm('boss');
+            sound.playBossWarning();
+            this.bossWarningTimer = 2.4;
           }
         }
       } else {
@@ -1322,14 +1481,15 @@ export class IsometricGameEngine {
       const dy = p.gy - item.gy;
       const d = Math.hypot(dx, dy);
 
+      const magnetRadius = this.selectedPet === 'cyber_neko' ? 7.8 : 4.2;
       if (
         (item.type === 'exp_gem' ||
           item.type === 'gold' ||
           item.type === 'mana_orb') &&
-        d < 4.2 &&
+        d < magnetRadius &&
         d > 0.1
       ) {
-        const pullSpeed = 9.0 * (1 - d / 4.5 + 0.4);
+        const pullSpeed = 9.5 * (1 - d / (magnetRadius + 0.4) + 0.4);
         item.gx += (dx / d) * pullSpeed * dt;
         item.gy += (dy / d) * pullSpeed * dt;
       }
@@ -1508,7 +1668,11 @@ export class IsometricGameEngine {
       }
     }
 
-    const scaledDamage = Math.round(wpn.damage * p.damageMultiplier);
+    const activeUpgradeLvl = p.weaponUpgrades[p.activeWeaponIdx] || 0;
+    const upgradeDmgMult = 1 + activeUpgradeLvl * 0.22;
+    const scaledDamage = Math.round(
+      wpn.damage * p.damageMultiplier * upgradeDmgMult
+    );
 
     // 1. MELEE WEAPON (3-Hit Combo Finisher + Tightened Blade Range + Soul Knight Bullet Deflection!)
     if (wpn.type === 'melee') {
@@ -2228,7 +2392,12 @@ export class IsometricGameEngine {
       }
 
       if (closest.type === 'lobby_pet') {
-        const order: PetId[] = ['cat', 'mini_slime', 'baby_dragon'];
+        const order: PetId[] = [
+          'cat',
+          'mini_slime',
+          'baby_dragon',
+          'cyber_neko',
+        ];
         const nextIdx = (order.indexOf(this.selectedPet) + 1) % order.length;
         this.selectPet(order[nextIdx]);
         return;
@@ -2240,10 +2409,59 @@ export class IsometricGameEngine {
         return;
       }
 
+      if (closest.type === 'anvil') {
+        const curLvl = p.weaponUpgrades[p.activeWeaponIdx] || 0;
+        if (curLvl >= 3) {
+          this.addFloatingText(
+            closest.gx,
+            closest.gy,
+            26,
+            'MAX LEVEL +3 ★!',
+            '#fde047',
+            1.15
+          );
+          return;
+        }
+        if (p.gold < closest.value) {
+          this.addFloatingText(
+            closest.gx,
+            closest.gy,
+            24,
+            `NEED ${closest.value}G`,
+            '#f43f5e',
+            1.1
+          );
+          return;
+        }
+        p.gold -= closest.value;
+        const nextLvl = curLvl + 1;
+        p.weaponUpgrades[p.activeWeaponIdx] = nextLvl;
+        closest.value = nextLvl === 1 ? 45 : 70;
+        if (nextLvl >= 3) {
+          closest.opened = true;
+        }
+        sound.playAnvilHammer();
+        this.addShake(6.5);
+        this.spawnParticles(closest.gx, closest.gy, 14, 30, '#fde047', 4.5);
+        const wpnName = this.getActiveWeapon().name.toUpperCase();
+        this.addFloatingText(
+          p.gx,
+          p.gy,
+          30,
+          `⚒️ ${wpnName} +${nextLvl} ★ (+${nextLvl * 22}% DMG)!`,
+          '#fde047',
+          1.25
+        );
+        this.onEarnSoulGems?.(0, 0, false, false, { maxUpgradeLevel: nextLvl });
+        this.syncHud();
+        return;
+      }
+
       if (closest.type === 'chest') {
         closest.opened = true;
         sound.playPickup('shrine');
         this.spawnParticles(closest.gx, closest.gy, 10, 24, '#fde047', 4.2);
+        this.onEarnSoulGems?.(0, 0, false, false, { chestOpened: true });
 
         const wpnId =
           WEAPON_POOL[Math.floor(Math.random() * WEAPON_POOL.length)];
@@ -2378,9 +2596,10 @@ export class IsometricGameEngine {
   }
 
   private enterPortal() {
-    if (this.floorNum >= MAX_FLOORS) {
+    if (this.selectedGameMode !== 'ENDLESS' && this.floorNum >= MAX_FLOORS) {
+      const modeMult = this.selectedGameMode === 'BOSS_RUSH' ? 2.0 : 1.0;
       const clearGems = Math.round(
-        100 * DIFFICULTIES[this.selectedDifficulty].gemMult
+        100 * DIFFICULTIES[this.selectedDifficulty].gemMult * modeMult
       );
       this.soulGemsEarnedThisRun += clearGems;
       this.onEarnSoulGems?.(clearGems, 0, true);
@@ -2547,12 +2766,16 @@ export class IsometricGameEngine {
     this.addShake(en.isBoss ? 12.0 : en.isElite ? 6.5 : 4.2);
 
     // Award Soul Gems for defeating foes!
-    const gemMult = DIFFICULTIES[this.selectedDifficulty].gemMult;
+    const gemMult =
+      DIFFICULTIES[this.selectedDifficulty].gemMult *
+      (this.selectedGameMode === 'BOSS_RUSH' ? 1.5 : 1.0);
     const gemsEarned = Math.round(
-      (en.isBoss ? 40 : en.isElite ? 12 : 4) * gemMult
+      (en.isBoss ? 45 : en.isElite ? 12 : 4) * gemMult
     );
     this.soulGemsEarnedThisRun += gemsEarned;
-    this.onEarnSoulGems?.(gemsEarned, 1, false);
+    this.onEarnSoulGems?.(gemsEarned, 1, false, false, {
+      bossKilled: Boolean(en.isBoss),
+    });
 
     // Burst death particles
     this.spawnParticles(
@@ -2680,6 +2903,26 @@ export class IsometricGameEngine {
 
       if (en.type === 'dummy') continue;
 
+      // Elemental Burn DoT & Chill Slow Status Ticks
+      if (en.burnTimer && en.burnTimer > 0) {
+        const prevBurn = en.burnTimer;
+        en.burnTimer = Math.max(0, en.burnTimer - dt);
+        if (Math.floor(prevBurn * 2) !== Math.floor(en.burnTimer * 2)) {
+          const burnDmg = Math.max(6, Math.round(en.maxHp * 0.03));
+          en.hp -= burnDmg;
+          this.spawnParticles(en.gx, en.gy, 12, 4, '#f97316', 2.0);
+          this.addFloatingText(en.gx, en.gy, 22, `${burnDmg}`, '#fb923c', 0.85);
+          if (en.hp <= 0) {
+            this.killEnemy(en);
+            continue;
+          }
+        }
+      }
+      if (en.chillTimer && en.chillTimer > 0) {
+        en.chillTimer = Math.max(0, en.chillTimer - dt);
+      }
+      const speedMult = en.chillTimer && en.chillTimer > 0 ? 0.5 : 1.0;
+
       if (Math.hypot(en.vx, en.vy) > 0.05) {
         const kx = en.gx + en.vx * dt;
         const ky = en.gy + en.vy * dt;
@@ -2716,7 +2959,7 @@ export class IsometricGameEngine {
       }
 
       if (en.state === 'chase') {
-        en.animPhase += dt * (en.type === 'slime' ? 12 : 10);
+        en.animPhase += dt * (en.type === 'slime' ? 12 : 10) * speedMult;
         en.hopZ =
           Math.abs(Math.sin(en.animPhase)) *
           (en.type === 'slime' ? 11.5 : 4.5);
@@ -2730,13 +2973,13 @@ export class IsometricGameEngine {
         } else {
           const dirX = dx / (dist || 1);
           const dirY = dy / (dist || 1);
-          const nx = en.gx + dirX * en.speed * dt;
-          const ny = en.gy + dirY * en.speed * dt;
+          const nx = en.gx + dirX * en.speed * speedMult * dt;
+          const ny = en.gy + dirY * en.speed * speedMult * dt;
           if (this.isWalkable(nx, en.gy)) en.gx = nx;
           if (this.isWalkable(en.gx, ny)) en.gy = ny;
         }
       } else if (en.state === 'windup') {
-        en.stateTimer += dt;
+        en.stateTimer += dt * speedMult;
         const prog = Math.min(1, en.stateTimer / en.windupDuration);
         en.squashX = 1 + Math.sin(prog * Math.PI * 4) * 0.14;
         en.squashY = 1 - Math.sin(prog * Math.PI * 4) * 0.14;
@@ -2759,12 +3002,11 @@ export class IsometricGameEngine {
             color: en.type === 'necro_mage' ? '#c084fc' : '#a855f7',
           });
         } else {
-          const rad =
-            en.type === 'warden_boss'
-              ? 2.4
-              : en.type === 'golem'
-              ? 1.95
-              : 1.25;
+          const rad = en.isBoss
+            ? 2.5
+            : en.type === 'golem'
+            ? 1.95
+            : 1.25;
           const cx = en.type === 'slime' ? en.targetGx : en.gx;
           const cy = en.type === 'slime' ? en.targetGy : en.gy;
           this.telegraphs.push({
@@ -2774,14 +3016,21 @@ export class IsometricGameEngine {
             gy: cy,
             radius: rad,
             progress: prog,
-            color: en.isBoss ? '#f43f5e' : '#10b981',
+            color:
+              en.type === 'cryo_boss'
+                ? '#38bdf8'
+                : en.type === 'inferno_boss'
+                ? '#f97316'
+                : en.isBoss
+                ? '#f43f5e'
+                : '#10b981',
           });
         }
 
         if (en.stateTimer >= en.windupDuration) {
           this.executeEnemyAttack(en);
           en.state = 'recover';
-          en.stateTimer = en.isBoss ? 0.6 : 0.52;
+          en.stateTimer = en.isBoss ? 0.58 : 0.52;
         }
       } else if (en.state === 'recover') {
         en.stateTimer -= dt;
@@ -2828,7 +3077,6 @@ export class IsometricGameEngine {
         });
       }
     } else if (en.type === 'necro_mage') {
-      // Skeleton Necro Mage fires a 3-way fan of dark soul orbs!
       const dx = en.targetGx - en.gx;
       const dy = en.targetGy - en.gy;
       const baseAng = Math.atan2(dy, dx);
@@ -2872,6 +3120,86 @@ export class IsometricGameEngine {
             coreColor: '#fde047',
           });
         }
+      }
+    } else if (en.type === 'cryo_boss') {
+      // Floor 1-2 Boss: Glacius, Cryo Behemoth (14-Way Frost Nova + Aimed Ice Lance Fan)
+      this.addShake(10);
+      sound.playHit(true, true);
+      this.spawnParticles(en.gx, en.gy, 10, 36, '#38bdf8', 5.2);
+      if (Math.hypot(p.gx - en.gx, p.gy - en.gy) <= 2.6) {
+        this.damagePlayer(en.damage);
+      }
+      const ringCount = en.enraged ? 14 : 10;
+      for (let i = 0; i < ringCount; i++) {
+        const ang = (i / ringCount) * Math.PI * 2 + this.globalTime * 1.2;
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * (en.enraged ? 8.2 : 7.0),
+          vy: Math.sin(ang) * (en.enraged ? 8.2 : 7.0),
+          damage: Math.round(en.damage * 0.75),
+          radius: 0.38,
+          maxLife: 1.8,
+          color: '#06b6d4',
+          coreColor: '#e0f2fe',
+        });
+      }
+      const aimAng = Math.atan2(p.gy - en.gy, p.gx - en.gx);
+      for (let j = -1; j <= 1; j++) {
+        const ang = aimAng + j * 0.22;
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * 10.2,
+          vy: Math.sin(ang) * 10.2,
+          damage: Math.round(en.damage * 0.85),
+          radius: 0.42,
+          maxLife: 1.6,
+          color: '#38bdf8',
+          coreColor: '#ffffff',
+        });
+      }
+    } else if (en.type === 'inferno_boss') {
+      // Floor 1-3 Boss: Ignis, Inferno Archdemon (16-Way Hellfire Ring + 5-Way Magma Barrage)
+      this.addShake(11.5);
+      sound.playHit(true, true);
+      this.spawnParticles(en.gx, en.gy, 10, 42, '#f97316', 5.8);
+      if (Math.hypot(p.gx - en.gx, p.gy - en.gy) <= 2.7) {
+        this.damagePlayer(en.damage);
+      }
+      const ringCount = en.enraged ? 16 : 12;
+      for (let i = 0; i < ringCount; i++) {
+        const ang = (i / ringCount) * Math.PI * 2 - this.globalTime * 1.5;
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * (en.enraged ? 8.8 : 7.5),
+          vy: Math.sin(ang) * (en.enraged ? 8.8 : 7.5),
+          damage: Math.round(en.damage * 0.78),
+          radius: 0.4,
+          maxLife: 1.8,
+          color: '#f97316',
+          coreColor: '#fde047',
+        });
+      }
+      const aimAng = Math.atan2(p.gy - en.gy, p.gx - en.gx);
+      for (let j = -2; j <= 2; j++) {
+        const ang = aimAng + j * 0.16;
+        this.spawnProjectile({
+          fromPlayer: false,
+          gx: en.gx,
+          gy: en.gy,
+          vx: Math.cos(ang) * 11.2,
+          vy: Math.sin(ang) * 11.2,
+          damage: Math.round(en.damage * 0.85),
+          radius: 0.42,
+          maxLife: 1.65,
+          color: '#ef4444',
+          coreColor: '#fef08a',
+        });
       }
     } else if (en.type === 'warden_boss') {
       this.addShake(9.5);
@@ -3176,6 +3504,13 @@ export class IsometricGameEngine {
         } else if (item.type === 'statue') {
           promptText = `Worship ${item.statueName} — ${item.value}G (Tap / E)`;
           promptSubtext = 'Grants Aegis Shield every time you cast your Skill';
+        } else if (item.type === 'anvil') {
+          const curLvl = p.weaponUpgrades[p.activeWeaponIdx] || 0;
+          promptText =
+            curLvl >= 3
+              ? 'Reforge Anvil — Weapon at MAX +3 ★!'
+              : `Reforge ${this.getActiveWeapon().name} to +${curLvl + 1} ★ — ${item.value}G (Tap / E)`;
+          promptSubtext = '+22% Weapon Damage per Star Level (Max +3 ★)';
         }
       }
     }
@@ -3189,19 +3524,24 @@ export class IsometricGameEngine {
       ) <= 2.2
     ) {
       promptText = this.portalOpen
-        ? this.floorNum >= MAX_FLOORS
+        ? this.selectedGameMode !== 'ENDLESS' && this.floorNum >= MAX_FLOORS
           ? 'Enter Victory Portal (Step / E)'
           : `Enter Portal to Stage 1-${this.floorNum + 1}`
         : `Defeat ${this.dungeon.enemies.length} Foes to Unlock Portal`;
     }
 
     const activeWpn = this.getActiveWeapon();
-    const secondId = p.weapons[p.activeWeaponIdx === 0 ? 1 : 0];
+    const secondIdx = p.activeWeaponIdx === 0 ? 1 : 0;
+    const secondId = p.weapons[secondIdx];
     const secondaryWpn = secondId ? WEAPONS[secondId] : null;
 
     this.onHudUpdate({
       inLivingRoom: this.dungeon.inLivingRoom,
       difficulty: this.selectedDifficulty,
+      gameMode: this.selectedGameMode,
+      biomeName: this.getBiomeName(this.floorNum),
+      stageBannerTimer: this.stageBannerTimer,
+      bossWarningTimer: this.bossWarningTimer,
       hp: Math.ceil(p.hp),
       maxHp: p.maxHp,
       armor: Math.floor(p.armor),
@@ -3229,7 +3569,9 @@ export class IsometricGameEngine {
       petId: this.selectedPet,
       petName: PETS[this.selectedPet].name,
       activeWeapon: activeWpn,
+      activeWeaponUpgrade: p.weaponUpgrades[p.activeWeaponIdx] || 0,
       secondaryWeapon: secondaryWpn,
+      secondaryWeaponUpgrade: p.weaponUpgrades[secondIdx] || 0,
       statueBlessing: p.statueBlessing,
       dashCooldownRatio: p.dashCooldown / p.maxDashCooldown,
       skillCooldownRatio: p.skillCooldown / p.maxSkillCooldown,
@@ -3457,15 +3799,28 @@ export class IsometricGameEngine {
     sx: number,
     sy: number
   ) {
-    let color = tile.variant % 2 === 0 ? '#1e293b' : '#172030';
+    const isFrostBiome = !this.dungeon.inLivingRoom && this.floorNum === 2;
+    const isMagmaBiome = !this.dungeon.inLivingRoom && this.floorNum >= 3;
+
+    let color = isFrostBiome
+      ? tile.variant % 2 === 0
+        ? '#162c46'
+        : '#112238'
+      : isMagmaBiome
+      ? tile.variant % 2 === 0
+        ? '#2a1215'
+        : '#1f0d10'
+      : tile.variant % 2 === 0
+      ? '#1e293b'
+      : '#172030';
     if (tile.type === 'floor_wood') {
       color = tile.variant % 2 === 0 ? '#451a03' : '#3b1502';
     } else if (tile.type === 'floor_carpet') {
-      color = '#7f1d1d';
+      color = isFrostBiome ? '#0c4a6e' : '#7f1d1d';
     } else if (tile.type === 'floor_moss') {
-      color = '#132a25';
+      color = isFrostBiome ? '#0f394c' : isMagmaBiome ? '#3b110b' : '#132a25';
     } else if (tile.type === 'floor_crystal') {
-      color = '#172554';
+      color = isMagmaBiome ? '#451a03' : '#172554';
     } else if (tile.type === 'spike_trap') {
       color = '#1e293b';
     } else if (tile.type === 'door_open') {
@@ -3515,10 +3870,18 @@ export class IsometricGameEngine {
       ctx.fillStyle = 'rgba(251, 191, 36, 0.16)';
       ctx.fillRect(sx + 19, sy + 19, 8, 8);
     } else if (tile.type === 'floor_moss') {
-      ctx.fillStyle = '#10b981';
+      ctx.fillStyle = isFrostBiome
+        ? '#38bdf8'
+        : isMagmaBiome
+        ? '#f97316'
+        : '#10b981';
       ctx.fillRect(sx + 8, sy + 10, 7, 5);
       ctx.fillRect(sx + 26, sy + 28, 6, 5);
-      ctx.fillStyle = '#34d399';
+      ctx.fillStyle = isFrostBiome
+        ? '#bae6fd'
+        : isMagmaBiome
+        ? '#fde047'
+        : '#34d399';
       ctx.fillRect(sx + 10, sy + 11, 3, 2);
     } else if (tile.type === 'floor_crystal') {
       const pulse = 0.55 + Math.sin(this.globalTime * 4 + tile.gx) * 0.35;
@@ -3593,6 +3956,8 @@ export class IsometricGameEngine {
       return;
     }
 
+    const isFrostBiome = !this.dungeon.inLivingRoom && this.floorNum === 2;
+    const isMagmaBiome = !this.dungeon.inLivingRoom && this.floorNum >= 3;
     const isPillar = tile.type === 'pillar';
     const pad = isPillar ? 6 : 0;
     const x = sx + pad;
@@ -3602,16 +3967,30 @@ export class IsometricGameEngine {
     const faceH = TILE_SIZE - topH + WALL_TOP_H;
 
     // 2.5D Top Stone Cap
-    ctx.fillStyle = isPillar ? '#475569' : '#334155';
+    ctx.fillStyle = isFrostBiome
+      ? '#1e3a8a'
+      : isMagmaBiome
+      ? '#450a0a'
+      : isPillar
+      ? '#475569'
+      : '#334155';
     ctx.fillRect(x, sy - WALL_TOP_H, w, topH);
     ctx.fillStyle = 'rgba(255,255,255,0.08)';
     ctx.fillRect(x + 2, sy - WALL_TOP_H + 2, w - 4, 3);
-    ctx.strokeStyle = '#64748b';
+    ctx.strokeStyle = isFrostBiome
+      ? '#38bdf8'
+      : isMagmaBiome
+      ? '#b91c1c'
+      : '#64748b';
     ctx.lineWidth = 1;
     ctx.strokeRect(x, sy - WALL_TOP_H, w, topH);
 
     // 2.5D Front Vertical Brick Face with mortar lines
-    ctx.fillStyle = isPillar ? '#1e293b' : '#1e293b';
+    ctx.fillStyle = isFrostBiome
+      ? '#172554'
+      : isMagmaBiome
+      ? '#2a0a0a'
+      : '#1e293b';
     ctx.fillRect(x, faceY, w, faceH);
 
     // Brick course lines
@@ -3666,7 +4045,13 @@ export class IsometricGameEngine {
     ctx.fill();
 
     const sprite =
-      prop.kind === 'crate' ? this.sprites.crate : this.sprites.vase;
+      prop.kind === 'crate'
+        ? this.sprites.crate
+        : prop.kind === 'explosive_barrel'
+        ? this.sprites.explosiveBarrel
+        : prop.kind === 'cryo_barrel'
+        ? this.sprites.cryoBarrel
+        : this.sprites.vase;
     ctx.save();
     if (prop.hitFlash > 0) {
       ctx.filter = 'brightness(2.5)';
@@ -3843,6 +4228,8 @@ export class IsometricGameEngine {
       sprite = this.sprites.statue;
     } else if (item.type === 'shrine') {
       sprite = this.sprites.shrine;
+    } else if (item.type === 'anvil') {
+      sprite = this.sprites.anvil;
     }
 
     ctx.drawImage(
@@ -3850,6 +4237,12 @@ export class IsometricGameEngine {
       Math.round(scr.x - sprite.width / 2),
       Math.round(scr.y - sprite.height + 4)
     );
+    if (item.type === 'anvil' && !item.opened) {
+      ctx.font = "700 10px 'JetBrains Mono', monospace";
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fde047';
+      ctx.fillText(`⚒️ ${item.value}G`, scr.x, scr.y + 16);
+    }
   }
 
   private drawPet(ctx: CanvasRenderingContext2D) {

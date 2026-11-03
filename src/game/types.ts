@@ -71,7 +71,8 @@ export interface RaceConfig {
   defaultCustom: Omit<RaceCustomization, 'raceId'>;
 }
 
-export type PetId = 'cat' | 'mini_slime' | 'baby_dragon';
+export type PetId = 'cat' | 'mini_slime' | 'baby_dragon' | 'cyber_neko';
+export type GameModeId = 'CAMPAIGN' | 'BOSS_RUSH' | 'ENDLESS';
 export type AvatarId =
   | 'knight_helm'
   | 'pyro_hood'
@@ -114,6 +115,7 @@ export interface PetConfig {
   id: PetId;
   name: string;
   role: string;
+  passiveDesc?: string;
   damage: number;
   attackCooldown: number;
   isRanged: boolean;
@@ -191,6 +193,11 @@ export interface PlayerProfile {
   totalKills: number;
   runsCompleted: number;
   chestsOpened: number;
+  bossesDefeated?: number;
+  bestEndlessWave?: number;
+  maxWeaponUpgradeReached?: number;
+  claimedAchievements?: string[];
+  selectedPetId?: PetId;
   upgrades: PermanentUpgrades;
   unlockedHeroes: HeroClassId[];
   unlockedSkins: Record<HeroClassId, SkinTier[]>;
@@ -271,7 +278,7 @@ export interface DungeonRoom {
 export interface DestructibleProp {
   id: number;
   roomId: number;
-  kind: 'crate' | 'vase';
+  kind: 'crate' | 'vase' | 'explosive_barrel' | 'cryo_barrel';
   gx: number;
   gy: number;
   hp: number;
@@ -284,6 +291,8 @@ export type EnemyType =
   | 'necro_mage'
   | 'golem'
   | 'warden_boss'
+  | 'cryo_boss'
+  | 'inferno_boss'
   | 'dummy';
 
 export interface Enemy {
@@ -317,6 +326,8 @@ export interface Enemy {
   isBoss?: boolean;
   isElite?: boolean;
   enraged?: boolean;
+  burnTimer?: number;
+  chillTimer?: number;
 }
 
 export type InteractableType =
@@ -325,6 +336,7 @@ export type InteractableType =
   | 'shop_item'
   | 'statue'
   | 'shrine'
+  | 'anvil'
   | 'lobby_hero'
   | 'lobby_pet'
   | 'dungeon_gate'
@@ -380,6 +392,8 @@ export interface Projectile {
   piercing?: boolean;
   explosive?: boolean;
   chainLightning?: boolean;
+  burnEffect?: boolean;
+  chillEffect?: boolean;
 }
 
 export interface TelegraphZone {
@@ -455,6 +469,12 @@ export interface BoonOption {
 
 export interface HudSnapshot {
   inLivingRoom: boolean;
+  gameMode?: GameModeId;
+  biomeName?: string;
+  stageBannerTimer?: number;
+  bossWarningTimer?: number;
+  activeWeaponUpgrade?: number;
+  secondaryWeaponUpgrade?: number;
   difficulty: DifficultyId;
   hp: number;
   maxHp: number;

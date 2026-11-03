@@ -7,6 +7,7 @@ import {
   DungeonTile,
   Enemy,
   EnemyType,
+  GameModeId,
   HeroClassConfig,
   HeroClassId,
   Interactable,
@@ -397,32 +398,46 @@ export const PETS: Record<PetId, PetConfig> = {
   cat: {
     id: 'cat',
     name: 'Chilly the Cat',
-    role: 'Mèo Chiến Binh Cận Chiến',
+    role: 'Mèo Chiến Binh (+8% Crit)',
     damage: 18,
     attackCooldown: 0.78,
     isRanged: false,
     projectileColor: '#fde047',
     accentColor: '#f59e0b',
+    passiveDesc: '+8% Tỷ lệ Chí mạng cho chủ nhân',
   },
   mini_slime: {
     id: 'mini_slime',
     name: 'Bloop the Slime',
-    role: 'Slime Băng Hộ Vệ',
+    role: 'Slime Băng Hộ Vệ (+25 Mana)',
     damage: 20,
     attackCooldown: 0.85,
     isRanged: false,
     projectileColor: '#38bdf8',
     accentColor: '#38bdf8',
+    passiveDesc: '+25 Mana tối đa & làm chậm mục tiêu',
   },
   baby_dragon: {
     id: 'baby_dragon',
     name: 'Ignis Dragonling',
-    role: 'Rồng Con Phun Cầu Lửa',
-    damage: 24,
-    attackCooldown: 0.88,
+    role: 'Rồng Con Hỏa Diệm (+12% DMG)',
+    damage: 25,
+    attackCooldown: 0.86,
     isRanged: true,
     projectileColor: '#f43f5e',
     accentColor: '#f43f5e',
+    passiveDesc: '+12% Sát thương vũ khí & gây Thiêu đốt',
+  },
+  cyber_neko: {
+    id: 'cyber_neko',
+    name: 'Cyber Neko X-9',
+    role: 'Mèo Laser Công Nghệ (x2 Hút Vàng)',
+    damage: 22,
+    attackCooldown: 0.65,
+    isRanged: true,
+    projectileColor: '#22d3ee',
+    accentColor: '#22d3ee',
+    passiveDesc: 'Tăng gấp đôi bán kính hút Vàng/Mana & bắn tia Laser nhanh',
   },
 };
 
@@ -1104,8 +1119,10 @@ export function createDungeonEnemy(
   const scaleDmg = (1 + (floorNum - 1) * 0.16) * diffCfg.dmgMult;
   const scaleSpd = diffCfg.speedMult;
 
+  const isBossType =
+    type === 'warden_boss' || type === 'cryo_boss' || type === 'inferno_boss';
   const isElite =
-    type !== 'warden_boss' &&
+    !isBossType &&
     type !== 'dummy' &&
     (forceElite || Math.random() < diffCfg.eliteChance);
   const eliteHpMult = isElite ? 1.55 : 1.0;
@@ -1239,12 +1256,77 @@ export function createDungeonEnemy(
       isElite,
     };
   }
+  if (type === 'cryo_boss') {
+    return {
+      id,
+      roomId,
+      type: 'cryo_boss',
+      name: 'Glacius, Cryo Behemoth',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(490 * scaleHp),
+      maxHp: Math.round(490 * scaleHp),
+      damage: Math.round(25 * scaleDmg),
+      speed: 2.75 * scaleSpd,
+      attackRange: 5.5,
+      detectRange: 15.0,
+      aggroed: true,
+      alertTimer: 0.9,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.65,
+      targetGx: gx,
+      targetGy: gy,
+      facing: -1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: 0,
+      isBoss: true,
+      enraged: false,
+    };
+  }
+  if (type === 'inferno_boss') {
+    return {
+      id,
+      roomId,
+      type: 'inferno_boss',
+      name: 'Ignis, Inferno Archdemon',
+      gx,
+      gy,
+      vx: 0,
+      vy: 0,
+      hp: Math.round(580 * scaleHp),
+      maxHp: Math.round(580 * scaleHp),
+      damage: Math.round(28 * scaleDmg),
+      speed: 2.95 * scaleSpd,
+      attackRange: 6.2,
+      detectRange: 15.0,
+      aggroed: true,
+      alertTimer: 0.9,
+      state: 'chase',
+      stateTimer: 0,
+      windupDuration: 0.6,
+      targetGx: gx,
+      targetGy: gy,
+      facing: -1,
+      hitFlash: 0,
+      squashX: 1,
+      squashY: 1,
+      hopZ: 0,
+      animPhase: 0,
+      isBoss: true,
+      enraged: false,
+    };
+  }
   return {
     id,
     roomId,
     type: 'warden_boss',
-    name:
-      floorNum >= 3 ? 'Malakor, Abyssal Sovereign' : 'Vorgath, Dungeon Warden',
+    name: 'Vorgath, Obsidian Warden',
     gx,
     gy,
     vx: 0,
@@ -1335,7 +1417,8 @@ export function spawnWaveEnemiesForRoom(
 // ============================================================================
 export function generateDungeonFloor(
   floorNum: number,
-  difficulty: DifficultyId = 'normal'
+  difficulty: DifficultyId = 'normal',
+  gameMode: GameModeId = 'CAMPAIGN'
 ): GeneratedFloor {
   const width = 92;
   const height = 74;
@@ -1386,7 +1469,13 @@ export function generateDungeonFloor(
   const cellH = 22;
 
   const defaultMaxWaves =
-    floorNum >= 2 || difficulty !== 'normal' ? 3 : 2;
+    gameMode === 'ENDLESS'
+      ? 3
+      : gameMode === 'BOSS_RUSH'
+      ? 1
+      : floorNum >= 2 || difficulty !== 'normal'
+      ? 3
+      : 2;
 
   for (const def of roomDefs) {
     const rw =
@@ -1410,7 +1499,8 @@ export function generateDungeonFloor(
       def.kind === 'START_ROOM' ||
       def.kind === 'CHEST_ROOM' ||
       def.kind === 'SHOP_ROOM' ||
-      def.kind === 'STATUE_ROOM';
+      def.kind === 'STATUE_ROOM' ||
+      (gameMode === 'BOSS_RUSH' && def.kind === 'COMBAT_ROOM' && def.id !== 2);
 
     rooms.push({
       id: def.id,
@@ -1425,7 +1515,7 @@ export function generateDungeonFloor(
       kind: def.kind,
       cleared: isSafeRoom,
       locked: false,
-      visited: def.kind === 'START_ROOM',
+      visited: def.kind === 'START_ROOM' || (gameMode === 'BOSS_RUSH' && isSafeRoom),
       wave: 1,
       maxWaves: def.kind === 'COMBAT_ROOM' ? defaultMaxWaves : 1,
       doorTiles: [],
@@ -1481,13 +1571,13 @@ export function generateDungeonFloor(
       tiles[Math.floor(rm.cy)][Math.floor(rm.cx) - 3].type = 'spike_trap';
       tiles[Math.floor(rm.cy)][Math.floor(rm.cx) + 3].type = 'spike_trap';
 
-      const propCoords: [number, number, 'crate' | 'vase'][] = [
+      const propCoords: [number, number, DestructibleProp['kind']][] = [
         [rm.x + 1.8, rm.y + 1.8, 'crate'],
         [rm.x + rm.w - 1.8, rm.y + 1.8, 'vase'],
         [rm.x + 1.8, rm.y + rm.h - 1.8, 'vase'],
         [rm.x + rm.w - 1.8, rm.y + rm.h - 1.8, 'crate'],
-        [rm.cx, rm.y + 1.8, 'crate'],
-        [rm.cx, rm.y + rm.h - 1.8, 'vase'],
+        [rm.cx - 4.2, rm.cy, 'explosive_barrel'],
+        [rm.cx + 4.2, rm.cy, 'cryo_barrel'],
       ];
       for (const [px, py, pkind] of propCoords) {
         props.push({
@@ -1496,7 +1586,7 @@ export function generateDungeonFloor(
           kind: pkind,
           gx: px,
           gy: py,
-          hp: pkind === 'crate' ? 24 : 16,
+          hp: pkind === 'crate' ? 24 : pkind === 'vase' ? 16 : 22,
           hitFlash: 0,
         });
       }
@@ -1510,37 +1600,37 @@ export function generateDungeonFloor(
         {
           id: nextPropId++,
           roomId: rm.id,
-          kind: 'vase',
-          gx: rm.x + 1.8,
+          kind: 'explosive_barrel',
+          gx: rm.x + 2.2,
           gy: rm.cy - 4,
-          hp: 18,
+          hp: 22,
           hitFlash: 0,
         },
         {
           id: nextPropId++,
           roomId: rm.id,
-          kind: 'vase',
-          gx: rm.x + 1.8,
+          kind: 'cryo_barrel',
+          gx: rm.x + 2.2,
           gy: rm.cy + 4,
-          hp: 18,
+          hp: 22,
           hitFlash: 0,
         },
         {
           id: nextPropId++,
           roomId: rm.id,
-          kind: 'crate',
-          gx: rm.x + rm.w - 1.8,
+          kind: 'cryo_barrel',
+          gx: rm.x + rm.w - 2.2,
           gy: rm.cy - 4,
-          hp: 24,
+          hp: 22,
           hitFlash: 0,
         },
         {
           id: nextPropId++,
           roomId: rm.id,
-          kind: 'crate',
-          gx: rm.x + rm.w - 1.8,
+          kind: 'explosive_barrel',
+          gx: rm.x + rm.w - 2.2,
           gy: rm.cy + 4,
-          hp: 24,
+          hp: 22,
           hitFlash: 0,
         }
       );
@@ -1660,7 +1750,28 @@ export function generateDungeonFloor(
   let nextInteractId = 200;
 
   for (const rm of rooms) {
-    if (rm.kind === 'COMBAT_ROOM') {
+    if (rm.kind === 'START_ROOM' && (gameMode === 'BOSS_RUSH' || gameMode === 'ENDLESS')) {
+      interactables.push({
+        id: nextInteractId++,
+        type: 'anvil',
+        gx: rm.cx - 2.2,
+        gy: rm.cy - 1.8,
+        opened: false,
+        value: 25,
+        bobPhase: 0,
+        label: 'Reforge Anvil (+1★ / +2★ / +3★)',
+      });
+      interactables.push({
+        id: nextInteractId++,
+        type: 'chest',
+        gx: rm.cx + 2.2,
+        gy: rm.cy - 1.8,
+        opened: false,
+        value: 0,
+        bobPhase: 1,
+        label: 'Arena Supply Chest',
+      });
+    } else if (rm.kind === 'COMBAT_ROOM' && !rm.cleared) {
       const wave1 = spawnWaveEnemiesForRoom(
         rm,
         floorNum,
@@ -1681,7 +1792,7 @@ export function generateDungeonFloor(
       interactables.push({
         id: nextInteractId++,
         type: 'chest',
-        gx: rm.cx - 1.8,
+        gx: rm.cx - 2.2,
         gy: rm.cy,
         opened: false,
         value: 0,
@@ -1690,12 +1801,22 @@ export function generateDungeonFloor(
       });
       interactables.push({
         id: nextInteractId++,
+        type: 'anvil',
+        gx: rm.cx,
+        gy: rm.cy - 1.8,
+        opened: false,
+        value: 25,
+        bobPhase: 0.5,
+        label: 'Reforge Anvil (+1★ / +2★ / +3★)',
+      });
+      interactables.push({
+        id: nextInteractId++,
         type: 'statue',
-        gx: rm.cx + 1.8,
+        gx: rm.cx + 2.2,
         gy: rm.cy,
         opened: false,
         value: 20,
-        bobPhase: 0,
+        bobPhase: 1,
         statueName: 'Statue of the Paladin',
         statueBuffId: 'paladin',
       });
@@ -1705,8 +1826,8 @@ export function generateDungeonFloor(
       interactables.push({
         id: nextInteractId++,
         type: 'shop_item',
-        gx: rm.cx - 2.4,
-        gy: rm.cy + 0.5,
+        gx: rm.cx - 2.6,
+        gy: rm.cy + 0.8,
         opened: false,
         value: 35,
         bobPhase: 0,
@@ -1718,7 +1839,7 @@ export function generateDungeonFloor(
         id: nextInteractId++,
         type: 'shop_item',
         gx: rm.cx,
-        gy: rm.cy + 0.5,
+        gy: rm.cy + 0.8,
         opened: false,
         value: 18,
         bobPhase: 1,
@@ -1728,19 +1849,35 @@ export function generateDungeonFloor(
       interactables.push({
         id: nextInteractId++,
         type: 'shop_item',
-        gx: rm.cx + 2.4,
-        gy: rm.cy + 0.5,
+        gx: rm.cx + 2.6,
+        gy: rm.cy + 0.8,
         opened: false,
         value: 15,
         bobPhase: 2,
         shopKind: 'mana_pack',
         label: 'Energy Crystal (+120 Mana)',
       });
+      interactables.push({
+        id: nextInteractId++,
+        type: 'anvil',
+        gx: rm.cx,
+        gy: rm.cy - 2.0,
+        opened: false,
+        value: 25,
+        bobPhase: 0.5,
+        label: 'Reforge Anvil (+1★ / +2★ / +3★)',
+      });
     } else if (rm.kind === 'BOSS_ROOM') {
+      const bossType: EnemyType =
+        floorNum === 1
+          ? 'warden_boss'
+          : floorNum === 2
+          ? 'cryo_boss'
+          : 'inferno_boss';
       const boss = createDungeonEnemy(
         nextEnemyId++,
         rm.id,
-        'warden_boss',
+        bossType,
         rm.cx + 2.5,
         rm.cy,
         floorNum,

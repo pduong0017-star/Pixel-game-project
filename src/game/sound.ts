@@ -1049,6 +1049,54 @@ class SoundEngine {
     });
   }
 
+  public playBossWarning() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      const t0 = now + i * 0.28;
+      osc.frequency.setValueAtTime(220, t0);
+      osc.frequency.linearRampToValueAtTime(520, t0 + 0.14);
+      osc.frequency.linearRampToValueAtTime(196, t0 + 0.25);
+
+      gain.gain.setValueAtTime(0.16, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.26);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.27);
+    }
+  }
+
+  public playAnvilHammer() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const hits = [987.77, 1318.51, 1975.53];
+    hits.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = idx === 2 ? 'triangle' : 'square';
+      const t0 = now + idx * 0.085;
+      osc.frequency.setValueAtTime(freq, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.18, t0 + 0.14);
+
+      gain.gain.setValueAtTime(0.18, t0);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.17);
+    });
+  }
+
   public playGameOver(victory = false) {
     const ctx = this.ensureContext();
     if (!ctx) return;

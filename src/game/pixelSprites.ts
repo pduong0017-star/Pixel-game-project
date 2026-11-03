@@ -59,8 +59,11 @@ export interface SpriteBank {
   shrine: HTMLCanvasElement;
   statue: HTMLCanvasElement;
   merchant: HTMLCanvasElement;
+  anvil: HTMLCanvasElement;
   crate: HTMLCanvasElement;
   vase: HTMLCanvasElement;
+  explosiveBarrel: HTMLCanvasElement;
+  cryoBarrel: HTMLCanvasElement;
 }
 
 let cachedBank: SpriteBank | null = null;
@@ -556,6 +559,37 @@ export function getSpriteBank(): SpriteBank {
     '..oo....oo..',
   ];
 
+  const cyberNekoPalette: Record<string, string> = {
+    o: '#090b10',
+    m: '#334155',
+    M: '#94a3b8',
+    c: '#22d3ee',
+    p: '#f43f5e',
+    w: '#ffffff',
+  };
+  const cyberNeko0 = [
+    '..oo....oo..',
+    '.oMMo..oMMo.',
+    '.oMMMMMMMMo.',
+    '.oMccccccMo.',
+    '.oMMppppMMo.',
+    '..oMMMMMMo..',
+    '..ommmmmmo..',
+    '..omo..omo..',
+    '..ooo..ooo..',
+  ];
+  const cyberNeko1 = [
+    '..oo....oo..',
+    '.oMMo..oMMo.',
+    '.oMMMMMMMMo.',
+    '.oMcwccwcMo.',
+    '.oMMppppMMo.',
+    '..oMMMMMMo..',
+    '..ommmmmmo..',
+    '.omo....omo.',
+    '.ooo....ooo.',
+  ];
+
   // ENEMIES
   const slimePalette: Record<string, string> = {
     o: '#090b10',
@@ -730,6 +764,26 @@ export function getSpriteBank(): SpriteBank {
     R: '#fb7185',
     s: '#475569',
     S: '#94a3b8',
+    w: '#fef08a',
+  };
+  const cryoBossPalette: Record<string, string> = {
+    o: '#090b10',
+    g: '#0284c7',
+    G: '#38bdf8',
+    r: '#06b6d4',
+    R: '#67e8f9',
+    s: '#1e3a8a',
+    S: '#93c5fd',
+    w: '#ffffff',
+  };
+  const infernoBossPalette: Record<string, string> = {
+    o: '#090b10',
+    g: '#ea580c',
+    G: '#fde047',
+    r: '#dc2626',
+    R: '#fb923c',
+    s: '#450a0a',
+    S: '#991b1b',
     w: '#fef08a',
   };
   const boss0 = [
@@ -1050,6 +1104,50 @@ export function getSpriteBank(): SpriteBank {
     '...oooooo...',
   ];
 
+  const barrelGrid = [
+    '..oooooooo..',
+    '.omRRRRRRmo.',
+    '.oRRRRRRRRo.',
+    '.ommmmmmmmo.',
+    '.oRRRYYRRRo.',
+    '.oRRYYYYRRo.',
+    '.ommmmmmmmo.',
+    '.oRRRRRRRRo.',
+    '.omrrrrrrmo.',
+    '..oooooooo..',
+  ];
+  const explosiveBarrelPalette: Record<string, string> = {
+    o: '#090b10',
+    m: '#475569',
+    r: '#991b1b',
+    R: '#ef4444',
+    Y: '#fde047',
+  };
+  const cryoBarrelPalette: Record<string, string> = {
+    o: '#090b10',
+    m: '#334155',
+    r: '#0369a1',
+    R: '#06b6d4',
+    Y: '#e0f2fe',
+  };
+
+  const anvilGrid = [
+    '.oooooooooooo.',
+    'oSSSSSSSSSSSSo',
+    '.ooSSSSSSSSoo.',
+    '...ooSSSSoo...',
+    '....osssso....',
+    '...osssssso...',
+    '..oGGGGGGGGo..',
+    '.oooooooooooo.',
+  ];
+  const anvilPalette: Record<string, string> = {
+    o: '#090b10',
+    S: '#cbd5e1',
+    s: '#64748b',
+    G: '#f59e0b',
+  };
+
   const potionGrid = [
     '....oooo....',
     '....oGgo....',
@@ -1341,6 +1439,10 @@ export function getSpriteBank(): SpriteBank {
         createPixelSprite(dragon0, dragonPalette, 2.5),
         createPixelSprite(dragon1, dragonPalette, 2.5),
       ],
+      cyber_neko: [
+        createPixelSprite(cyberNeko0, cyberNekoPalette, 2.5),
+        createPixelSprite(cyberNeko1, cyberNekoPalette, 2.5),
+      ],
     },
     enemies: {
       slime: [
@@ -1362,6 +1464,14 @@ export function getSpriteBank(): SpriteBank {
       warden_boss: [
         createPixelSprite(boss0, bossPalette, 3),
         createPixelSprite(boss1, bossPalette, 3),
+      ],
+      cryo_boss: [
+        createPixelSprite(boss0, cryoBossPalette, 3),
+        createPixelSprite(boss1, cryoBossPalette, 3),
+      ],
+      inferno_boss: [
+        createPixelSprite(boss0, infernoBossPalette, 3),
+        createPixelSprite(boss1, infernoBossPalette, 3),
       ],
       dummy: [
         createPixelSprite(dummyGrid, dummyPalette, 3),
@@ -1388,6 +1498,14 @@ export function getSpriteBank(): SpriteBank {
       warden_boss: [
         createPixelSprite(boss0, bossPalette, 3, '#ef4444'),
         createPixelSprite(boss1, bossPalette, 3, '#ef4444'),
+      ],
+      cryo_boss: [
+        createPixelSprite(boss0, cryoBossPalette, 3, '#ef4444'),
+        createPixelSprite(boss1, cryoBossPalette, 3, '#ef4444'),
+      ],
+      inferno_boss: [
+        createPixelSprite(boss0, infernoBossPalette, 3, '#ef4444'),
+        createPixelSprite(boss1, infernoBossPalette, 3, '#ef4444'),
       ],
       dummy: [
         createPixelSprite(dummyGrid, dummyPalette, 3, '#ef4444'),
@@ -1433,8 +1551,11 @@ export function getSpriteBank(): SpriteBank {
     shrine: createPixelSprite(shrineGrid, shrinePalette, 3),
     statue: createPixelSprite(statueGrid, statuePalette, 3),
     merchant: createPixelSprite(merchantGrid, merchantPalette, 3),
+    anvil: createPixelSprite(anvilGrid, anvilPalette, 3),
     crate: createPixelSprite(crateGrid, cratePalette, 3),
     vase: createPixelSprite(vaseGrid, vasePalette, 3),
+    explosiveBarrel: createPixelSprite(barrelGrid, explosiveBarrelPalette, 3),
+    cryoBarrel: createPixelSprite(barrelGrid, cryoBarrelPalette, 3),
   };
 
   return cachedBank;
