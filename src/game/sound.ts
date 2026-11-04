@@ -1,43 +1,78 @@
-// 4-Channel Polyphonic 8-Bit Chiptune Synthesizer, Algorithmic Music Generator & Retro SFX Engine
+// Full Multi-Section Song Synthesizer, AI Song Composer (Server-Side Gemini API) & Retro SFX Engine
 import { MusicStyle } from './types';
 
-export type BgmTrack = 'title' | 'lobby' | 'dungeon' | 'boss' | 'custom';
+export type BgmTrack =
+  | 'title'
+  | 'lobby'
+  | 'dungeon'
+  | 'frost'
+  | 'magma'
+  | 'boss'
+  | 'custom';
+
+export type SongSectionName =
+  | 'INTRO'
+  | 'VERSE A'
+  | 'VERSE B'
+  | 'CHORUS'
+  | 'CLIMAX';
 
 export interface ChiptunePattern {
   name: string;
+  subtitle?: string;
   style: MusicStyle;
   bpm: number;
-  lead: number[]; // 32 steps (Hz)
-  arp: number[]; // 32 steps (Hz)
-  bass: number[]; // 32 steps (Hz)
-  drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat')[]; // 32 steps
+  lead: number[]; // 128 steps (Hz)
+  arp: number[]; // 128 steps (Hz)
+  bass: number[]; // 128 steps (Hz)
+  drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat' | 'crash')[]; // 128 steps
+  lyrics?: string[]; // 5 lyric lines corresponding to INTRO, VERSE A, VERSE B, CHORUS, CLIMAX
 }
 
-const SCALES: Record<MusicStyle, { root: number; intervals: number[]; label: string }> = {
+export const MUSIC_SCALES: Record<
+  MusicStyle,
+  {
+    root: number;
+    intervals: number[];
+    label: string;
+    name: string;
+    defaultBpm: number;
+  }
+> = {
   heroic_minor: {
     root: 220, // A3
-    intervals: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19],
-    label: 'Dark Heroic Minor (Soul Knight)',
+    intervals: [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 22, 24],
+    label: 'Hào Hùng Hắc Thạch (Heroic Minor)',
+    name: 'Hào Hùng Hắc Thạch (Heroic Minor)',
+    defaultBpm: 136,
   },
   samurai_pentatonic: {
     root: 293.66, // D4 Hirajoshi
     intervals: [0, 2, 3, 7, 8, 12, 14, 15, 19, 20, 24],
-    label: 'Samurai Hirajoshi (Katana Spirit)',
+    label: 'Kiếm Khí Samurai (Hirajoshi)',
+    name: 'Kiếm Khí Samurai (Hirajoshi)',
+    defaultBpm: 150,
   },
   cyber_synth: {
     root: 164.81, // E3 Dorian
-    intervals: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19],
-    label: 'Cyberpunk Dorian (Synthwave)',
+    intervals: [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19, 21, 24],
+    label: 'Băng Giá Synthwave (Cyber Dorian)',
+    name: 'Băng Giá Synthwave (Cyber Dorian)',
+    defaultBpm: 142,
   },
   boss_phrygian: {
     root: 164.81, // E3 Phrygian Dominant
-    intervals: [0, 1, 4, 5, 7, 8, 10, 12, 13, 16, 17, 19],
-    label: 'Abyssal Phrygian (Boss Metal)',
+    intervals: [0, 1, 4, 5, 7, 8, 10, 12, 13, 16, 17, 19, 20, 24],
+    label: 'Cuồng Nộ Chúa Ngục (Boss Metal)',
+    name: 'Cuồng Nộ Chúa Ngục (Boss Metal)',
+    defaultBpm: 168,
   },
   arcade_major: {
     root: 261.63, // C4 Mixolydian
-    intervals: [0, 2, 4, 5, 7, 9, 10, 12, 14, 16, 17, 19],
-    label: 'Retro Arcade Mixolydian (8-Bit)',
+    intervals: [0, 2, 4, 5, 7, 9, 10, 12, 14, 16, 17, 19, 21, 24],
+    label: 'Thánh Điện Bình Yên (Sanctuary Ballad)',
+    name: 'Thánh Điện Bình Yên (Sanctuary Ballad)',
+    defaultBpm: 118,
   },
 };
 
@@ -45,124 +80,237 @@ function semiToFreq(rootHz: number, semitones: number): number {
   return Number((rootHz * Math.pow(2, semitones / 12)).toFixed(2));
 }
 
-function buildPresetPatterns(): Record<Exclude<BgmTrack, 'custom'>, ChiptunePattern> {
+// Helper to compose a full 128-step multi-section song (Intro -> Verse A -> Verse B -> Chorus -> Climax)
+function composeFullSong128(opts: {
+  name: string;
+  subtitle: string;
+  style: MusicStyle;
+  bpm: number;
+  verseMotif: number[]; // 16 scale indices
+  chorusMotif: number[]; // 16 scale indices
+  chordProgVerse: [number, number, number, number];
+  chordProgChorus: [number, number, number, number];
+  lyrics: [string, string, string, string, string];
+}): ChiptunePattern {
+  const sc = MUSIC_SCALES[opts.style] || MUSIC_SCALES.heroic_minor;
+  const root = sc.root;
+  const notes = sc.intervals;
+
+  const lead: number[] = [];
+  const arp: number[] = [];
+  const bass: number[] = [];
+  const drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat' | 'crash')[] = [];
+
+  const getNote = (idx: number, octMult = 1): number => {
+    if (idx < 0) return 0;
+    const clamped = Math.max(0, Math.min(notes.length - 1, idx));
+    return semiToFreq(root * octMult, notes[clamped]);
+  };
+
+  for (let step = 0; step < 128; step++) {
+    const bar = Math.floor(step / 8); // 0..15 bars
+    const stepInBar = step % 8;
+    const isIntro = step < 16; // Bars 0-1
+    const isVerseA = step >= 16 && step < 48; // Bars 2-5
+    const isVerseB = step >= 48 && step < 80; // Bars 6-9
+    const isChorus = step >= 80 && step < 112; // Bars 10-13
+    // Bars 14-15 = Bridge / Climax
+
+    const prog = isChorus ? opts.chordProgChorus : opts.chordProgVerse;
+    const chordDeg = prog[bar % 4];
+
+    // 1. BASSLINE
+    if (isIntro) {
+      bass.push(stepInBar === 0 || stepInBar === 4 ? getNote(chordDeg, 0.5) : 0);
+    } else if (isChorus) {
+      // Driving octave bass in Chorus
+      bass.push(
+        step % 2 === 0 ? getNote(chordDeg, 0.5) : getNote(chordDeg, 1.0)
+      );
+    } else {
+      bass.push(
+        stepInBar % 2 === 0
+          ? getNote(chordDeg, 0.5)
+          : stepInBar === 7
+          ? getNote(chordDeg + 2, 0.5)
+          : getNote(chordDeg, 1.0)
+      );
+    }
+
+    // 2. ARPEGGIO / CHORD HARMONY
+    const arpOffsets = isChorus ? [0, 2, 4, 7] : [0, 2, 4, 2];
+    const arpDeg = chordDeg + arpOffsets[step % 4];
+    arp.push(getNote(arpDeg, isChorus ? 1.5 : 1.0));
+
+    // 3. LEAD MELODY ACROSS 5 SECTIONS
+    const motifStep = step % 16;
+    if (isIntro) {
+      // Sparse atmospheric intro motif
+      const introIdx = opts.verseMotif[motifStep];
+      lead.push(step % 2 === 0 ? getNote(introIdx, 1.0) : 0);
+    } else if (isVerseA) {
+      const mIdx = opts.verseMotif[motifStep];
+      lead.push(mIdx < 0 ? 0 : getNote(mIdx, 2.0));
+    } else if (isVerseB) {
+      // Harmonized variation (+2 scale degrees on odd bars)
+      const baseIdx = opts.verseMotif[motifStep];
+      const varIdx =
+        baseIdx < 0 ? -1 : baseIdx + (bar % 2 === 1 && stepInBar >= 4 ? 2 : 0);
+      lead.push(varIdx < 0 ? 0 : getNote(varIdx, 2.0));
+    } else if (isChorus) {
+      // Soaring Anthem Chorus
+      const cIdx = opts.chorusMotif[motifStep];
+      lead.push(cIdx < 0 ? 0 : getNote(cIdx, 2.0));
+    } else {
+      // Climax / Bridge Arpeggiated Solo
+      const bridgeIdx =
+        chordDeg + [4, 6, 7, 9, 7, 6, 4, 2][stepInBar];
+      lead.push(getNote(bridgeIdx, 2.0));
+    }
+
+    // 4. DRUMS & SECTION TRANSITIONS
+    if (step === 0 || step === 16 || step === 48 || step === 80 || step === 112) {
+      drums.push('crash');
+    } else if (isIntro) {
+      drums.push(stepInBar === 0 ? 'kick' : stepInBar === 4 ? 'hat' : 'none');
+    } else if (step >= 120) {
+      // Climax drum fill
+      drums.push(step % 2 === 0 ? 'snare' : 'kick_hat');
+    } else if (isChorus) {
+      if (stepInBar === 0 || stepInBar === 3 || stepInBar === 4) {
+        drums.push('kick_hat');
+      } else if (stepInBar === 2 || stepInBar === 6) {
+        drums.push('snare');
+      } else {
+        drums.push('hat');
+      }
+    } else {
+      if (stepInBar === 0 || stepInBar === 4) drums.push('kick');
+      else if (stepInBar === 2 || stepInBar === 6) drums.push('snare');
+      else drums.push('hat');
+    }
+  }
+
   return {
-    title: {
-      name: 'Obsidian Overture',
+    name: opts.name,
+    subtitle: opts.subtitle,
+    style: opts.style,
+    bpm: opts.bpm,
+    lead,
+    arp,
+    bass,
+    drums,
+    lyrics: opts.lyrics,
+  };
+}
+
+function buildPresetPatterns(): Record<
+  Exclude<BgmTrack, 'custom'>,
+  ChiptunePattern
+> {
+  return {
+    title: composeFullSong128({
+      name: 'Khúc Khải Hoàn Hắc Thạch (Obsidian Overture)',
+      subtitle: 'Main Title Theme · Full 5-Part Song',
       style: 'heroic_minor',
       bpm: 132,
-      lead: [
-        440, 0, 523.25, 659.25, 587.33, 0, 523.25, 493.88,
-        440, 523.25, 659.25, 783.99, 659.25, 587.33, 523.25, 392,
-        440, 0, 659.25, 880, 783.99, 659.25, 587.33, 523.25,
-        493.88, 523.25, 587.33, 659.25, 587.33, 523.25, 493.88, 440,
+      verseMotif: [0, -1, 2, 4, 3, -1, 2, 1, 0, 2, 4, 6, 4, 3, 2, -1],
+      chorusMotif: [4, 4, 6, 7, 6, 4, 3, 2, 4, 6, 7, 9, 8, 7, 6, 4],
+      chordProgVerse: [0, 5, 3, 4],
+      chordProgChorus: [5, 3, 0, 4],
+      lyrics: [
+        '♪ [Intro] Giữa bóng đêm Hắc Thạch ngàn năm ngủ vùi...',
+        '♪ [Verse 1] Lưỡi kiếm thức tỉnh, ánh lửa rực cháy nơi thánh đường cổ xưa.',
+        '♪ [Verse 2] Sáu vị anh hùng bước qua cổng dịch chuyển không chút chùn bước.',
+        '♪ [Chorus] Tiến xuống hầm ngục sâu! Chém tan mưa đạn, khắc tên vào huyền thoại!',
+        '♪ [Climax] Ánh sáng Linh Thạch bùng nổ dẫn lối chiến thắng vinh quang!',
       ],
-      arp: [
-        261.63, 329.63, 440, 329.63, 293.66, 349.23, 440, 349.23,
-        261.63, 329.63, 440, 523.25, 392, 329.63, 293.66, 246.94,
-        261.63, 329.63, 440, 523.25, 392, 493.88, 587.33, 493.88,
-        293.66, 349.23, 440, 349.23, 246.94, 329.63, 392, 329.63,
-      ],
-      bass: [
-        110, 110, 220, 110, 146.83, 146.83, 130.81, 98,
-        110, 110, 164.81, 164.81, 146.83, 130.81, 110, 98,
-        110, 110, 220, 110, 196, 196, 146.83, 130.81,
-        146.83, 146.83, 130.81, 130.81, 123.47, 110, 98, 82.41,
-      ],
-      drums: [
-        'kick', 'hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'hat',
-        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'hat', 'snare',
-        'kick', 'hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'hat',
-        'kick', 'hat', 'snare', 'kick_hat', 'snare', 'snare', 'kick', 'snare',
-      ],
-    },
-    lobby: {
-      name: 'Sanctuary of Heroes',
+    }),
+    lobby: composeFullSong128({
+      name: 'Thánh Điện Hiệp Sĩ (Sanctuary Ballad)',
+      subtitle: 'Living Room Sanctuary · Full 5-Part Song',
       style: 'arcade_major',
       bpm: 118,
-      lead: [
-        523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46,
-        523.25, 659.25, 783.99, 1046.5, 880, 783.99, 659.25, 587.33,
-        659.25, 783.99, 880, 1046.5, 987.77, 880, 783.99, 659.25,
-        587.33, 659.25, 783.99, 659.25, 523.25, 587.33, 523.25, 0,
+      verseMotif: [0, 2, 4, 2, 1, 3, 5, 3, 0, 2, 4, 7, 5, 4, 2, -1],
+      chorusMotif: [4, 5, 7, 9, 7, 5, 4, 2, 3, 4, 5, 7, 5, 4, 2, 0],
+      chordProgVerse: [0, 3, 4, 0],
+      chordProgChorus: [3, 4, 2, 0],
+      lyrics: [
+        '♪ [Intro] Tiếng lửa bập bùng sưởi ấm đại sảnh Hiệp Sĩ...',
+        '♪ [Verse 1] Nâng ly rượu mừng, mài sắc thanh đao bên đe rèn rực đỏ.',
+        '♪ [Verse 2] Những người bạn đồng hành trung thành sẵn sàng sát cánh.',
+        '♪ [Chorus] Nơi bình yên trước cơn bão lớn, tình huynh đệ bất diệt!',
+        '♪ [Climax] Cổng hầm ngục đã mở, cùng nhau viết tiếp khúc tráng ca!',
       ],
-      arp: [
-        261.63, 329.63, 392, 329.63, 293.66, 349.23, 440, 349.23,
-        261.63, 329.63, 392, 523.25, 440, 392, 329.63, 293.66,
-        329.63, 392, 440, 523.25, 493.88, 440, 392, 329.63,
-        293.66, 349.23, 392, 349.23, 261.63, 329.63, 392, 261.63,
-      ],
-      bass: [
-        130.81, 0, 196, 130.81, 146.83, 0, 220, 146.83,
-        130.81, 0, 196, 130.81, 164.81, 146.83, 130.81, 98,
-        164.81, 0, 220, 164.81, 146.83, 0, 196, 146.83,
-        146.83, 0, 196, 146.83, 130.81, 98, 130.81, 0,
-      ],
-      drums: [
-        'kick', 'none', 'hat', 'none', 'snare', 'none', 'hat', 'kick',
-        'kick', 'none', 'hat', 'none', 'snare', 'hat', 'kick', 'snare',
-        'kick', 'none', 'hat', 'none', 'snare', 'none', 'hat', 'kick',
-        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'hat', 'none',
-      ],
-    },
-    dungeon: {
-      name: 'Blade & Bullet Storm',
+    }),
+    dungeon: composeFullSong128({
+      name: 'Kiếm Khí Hầm Ngục 1-1 (Blade & Bullet Storm)',
+      subtitle: 'Stage 1-1 Obsidian Crypt · Full 5-Part Song',
       style: 'samurai_pentatonic',
-      bpm: 152,
-      lead: [
-        587.33, 587.33, 659.25, 698.46, 880, 698.46, 659.25, 587.33,
-        523.25, 587.33, 659.25, 880, 932.33, 880, 698.46, 659.25,
-        587.33, 698.46, 880, 1174.66, 932.33, 880, 698.46, 659.25,
-        587.33, 523.25, 587.33, 698.46, 659.25, 587.33, 523.25, 440,
+      bpm: 148,
+      verseMotif: [2, 2, 3, 4, 5, 4, 3, 2, 1, 2, 3, 5, 6, 5, 4, 3],
+      chorusMotif: [5, 5, 7, 8, 7, 5, 4, 3, 5, 7, 8, 9, 8, 7, 5, 4],
+      chordProgVerse: [0, 3, 2, 4],
+      chordProgChorus: [3, 4, 5, 0],
+      lyrics: [
+        '♪ [Intro] Bước chân vang vọng giữa hầm mộ đá đen lạnh lẽo...',
+        '♪ [Verse 1] Bóng tối rình rập, từng đàn quái vật lao ra từ màn sương.',
+        '♪ [Verse 2] Lưỡi Katana vung lên như chớp giật, phản xạ từng viên đạn đỏ.',
+        '♪ [Chorus] Bão kiếm cuồng phong! Không kẻ thù nào cản nổi bước chân hiệp sĩ!',
+        '♪ [Climax] Tốc biến qua làn đạn, kết liễu mục tiêu trong chớp mắt!',
       ],
-      arp: [
-        293.66, 440, 587.33, 440, 349.23, 440, 698.46, 440,
-        261.63, 392, 523.25, 392, 349.23, 466.16, 698.46, 466.16,
-        293.66, 440, 587.33, 880, 466.16, 440, 349.23, 329.63,
-        293.66, 349.23, 440, 587.33, 329.63, 293.66, 261.63, 220,
+    }),
+    frost: composeFullSong128({
+      name: 'Băng Tuyết Vĩnh Cửu 1-2 (Crystal Frostbite)',
+      subtitle: 'Stage 1-2 Frostbite Cavern · Full 5-Part Song',
+      style: 'cyber_synth',
+      bpm: 142,
+      verseMotif: [4, -1, 6, 7, 4, 2, 3, 4, 2, 4, 6, 8, 7, 6, 4, -1],
+      chorusMotif: [7, 8, 9, 7, 6, 7, 8, 6, 4, 6, 7, 9, 10, 9, 7, 6],
+      chordProgVerse: [0, 2, 5, 4],
+      chordProgChorus: [5, 3, 0, 4],
+      lyrics: [
+        '♪ [Intro] Hơi thở đóng băng giữa động pha lê xanh thẳm...',
+        '♪ [Verse 1] Tinh thể băng ngân vang như tiếng đàn giữa lòng đất lạnh.',
+        '♪ [Verse 2] Pháp sư hư không và chiến binh giáp sắt chắn ngang lối đi.',
+        '♪ [Chorus] Băng tuyết gào thét! Ngọn lửa ý chí làm tan chảy vạn băng hà!',
+        '♪ [Climax] Ánh sáng pha lê soi rọi con đường tiến xuống lõi ngục tối!',
       ],
-      bass: [
-        146.83, 146.83, 293.66, 146.83, 174.61, 174.61, 146.83, 130.81,
-        130.81, 130.81, 261.63, 130.81, 116.54, 116.54, 130.81, 146.83,
-        146.83, 146.83, 293.66, 146.83, 116.54, 116.54, 130.81, 146.83,
-        146.83, 130.81, 116.54, 110, 98, 110, 130.81, 146.83,
+    }),
+    magma: composeFullSong128({
+      name: 'Lõi Dung Nham Địa Ngục 1-3 (Inferno Core)',
+      subtitle: 'Stage 1-3 Magma Core · Full 5-Part Song',
+      style: 'heroic_minor',
+      bpm: 158,
+      verseMotif: [4, 4, 5, 4, 2, 3, 4, 0, 4, 4, 6, 5, 4, 3, 2, 1],
+      chorusMotif: [7, 7, 9, 8, 7, 6, 4, 6, 7, 9, 10, 9, 8, 7, 6, 7],
+      chordProgVerse: [0, 5, 6, 4],
+      chordProgChorus: [5, 6, 3, 4],
+      lyrics: [
+        '♪ [Intro] Sức nóng dung nham sôi sục dưới từng phiến đá cổ...',
+        '♪ [Verse 1] Biển lửa địa ngục cuộn trào, thử thách lòng quả cảm tối thượng.',
+        '♪ [Verse 2] Kẻ yếu gục ngã, người mạnh vươn lên giữa tàn tro rực cháy.',
+        '♪ [Chorus] Giữa tâm bão lửa! Tuyệt kỹ thức tỉnh quét sạch quân đoàn bóng tối!',
+        '♪ [Climax] Vượt qua tầng sâu nhất, đối mặt Chúa Tể Hầm Ngục!',
       ],
-      drums: [
-        'kick', 'hat', 'snare', 'hat', 'kick', 'kick_hat', 'snare', 'hat',
-        'kick', 'hat', 'snare', 'hat', 'kick', 'snare', 'kick_hat', 'snare',
-        'kick', 'hat', 'snare', 'hat', 'kick', 'kick_hat', 'snare', 'hat',
-        'kick', 'snare', 'kick', 'snare', 'kick', 'snare', 'snare', 'snare',
-      ],
-    },
-    boss: {
-      name: 'Wrath of the Obsidian Warden',
+    }),
+    boss: composeFullSong128({
+      name: 'Cuồng Nộ Hắc Vương (Wrath of the Archfiend)',
+      subtitle: 'Boss Battle Anthem · Full 5-Part Song',
       style: 'boss_phrygian',
       bpm: 168,
-      lead: [
-        659.25, 698.46, 659.25, 587.33, 659.25, 830.61, 783.99, 698.46,
-        659.25, 698.46, 830.61, 987.77, 880, 830.61, 698.46, 659.25,
-        987.77, 1046.5, 987.77, 830.61, 880, 987.77, 830.61, 698.46,
-        659.25, 587.33, 659.25, 830.61, 698.46, 659.25, 587.33, 523.25,
+      verseMotif: [4, 5, 4, 3, 4, 6, 5, 3, 4, 5, 6, 8, 7, 6, 5, 4],
+      chorusMotif: [8, 9, 8, 6, 7, 8, 6, 5, 8, 9, 10, 9, 8, 6, 5, 4],
+      chordProgVerse: [0, 1, 3, 1],
+      chordProgChorus: [5, 3, 1, 0],
+      lyrics: [
+        '♪ [Intro] Còi báo động vang rền! Chúa tể bóng tối giáng lâm!',
+        '♪ [Verse 1] Mưa đạn địa ngục phủ kín đấu trường không một góc trốn.',
+        '♪ [Verse 2] Giữ vững nhịp thở, lướt qua tử thần trong tích tắc sinh tử.',
+        '♪ [Chorus] Quyết chiến sinh tử! Dồn toàn lực tung đòn chí mạng kết liễu Boss!',
+        '♪ [Climax] Hắc Vương sụp đổ, hào quang chiến thắng thuộc về người anh hùng!',
       ],
-      arp: [
-        329.63, 415.3, 493.88, 659.25, 349.23, 440, 523.25, 698.46,
-        329.63, 415.3, 493.88, 659.25, 293.66, 349.23, 440, 587.33,
-        329.63, 415.3, 493.88, 659.25, 349.23, 440, 523.25, 698.46,
-        293.66, 349.23, 440, 587.33, 329.63, 415.3, 493.88, 329.63,
-      ],
-      bass: [
-        82.41, 82.41, 164.81, 82.41, 87.31, 87.31, 174.61, 87.31,
-        82.41, 82.41, 164.81, 82.41, 73.42, 73.42, 98, 110,
-        82.41, 82.41, 164.81, 82.41, 110, 110, 116.54, 98,
-        87.31, 87.31, 82.41, 82.41, 73.42, 82.41, 87.31, 98,
-      ],
-      drums: [
-        'kick', 'kick_hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'kick_hat',
-        'kick', 'hat', 'snare', 'kick_hat', 'kick', 'snare', 'snare', 'snare',
-        'kick', 'kick_hat', 'snare', 'hat', 'kick', 'kick', 'snare', 'kick_hat',
-        'kick', 'snare', 'kick', 'snare', 'snare', 'snare', 'kick', 'snare',
-      ],
-    },
+    }),
   };
 }
 
@@ -173,6 +321,10 @@ class SoundEngine {
   private currentTrack: BgmTrack = 'title';
   private bgmTimer: number | null = null;
   private bgmStep: number = 0;
+
+  // Optional external MP3/WAV audio element for uploaded or streamed songs
+  private externalAudio: HTMLAudioElement | null = null;
+  private externalAudioTitle: string | null = null;
 
   // Channel toggles for Music Studio
   public channelEnabled = {
@@ -185,7 +337,7 @@ class SoundEngine {
   private presets = buildPresetPatterns();
   private customPattern: ChiptunePattern = {
     ...buildPresetPatterns().dungeon,
-    name: 'Custom Chiptune #1',
+    name: 'Bản Nhạc Tự Sáng Tác #1',
   };
 
   private ensureContext(forBgm = false): AudioContext | null {
@@ -224,95 +376,227 @@ class SoundEngine {
     }
   }
 
+  public getCurrentTrackId(): BgmTrack {
+    return this.currentTrack;
+  }
+
   public getActivePattern(): ChiptunePattern {
     if (this.currentTrack === 'custom') return this.customPattern;
     return this.presets[this.currentTrack] || this.presets.title;
   }
 
+  public getCurrentSongStatus(): {
+    title: string;
+    subtitle: string;
+    section: SongSectionName;
+    lyricLine: string;
+    step: number;
+    totalSteps: number;
+    bpm: number;
+    isExternalMp3: boolean;
+  } {
+    if (this.externalAudio && !this.externalAudio.paused) {
+      return {
+        title: this.externalAudioTitle || 'MP3 Custom Song',
+        subtitle: 'File Âm Thanh Bài Hát Hoàn Chỉnh',
+        section: 'CHORUS',
+        lyricLine: '♫ Đang phát trực tiếp bài hát âm thanh chất lượng cao...',
+        step: Math.floor((this.externalAudio.currentTime % 60) * 2),
+        totalSteps: 120,
+        bpm: 140,
+        isExternalMp3: true,
+      };
+    }
+
+    const pat = this.getActivePattern();
+    const total = pat.lead.length || 128;
+    const step = this.bgmStep % total;
+
+    let section: SongSectionName = 'INTRO';
+    let secIdx = 0;
+    if (step >= 112) {
+      section = 'CLIMAX';
+      secIdx = 4;
+    } else if (step >= 80) {
+      section = 'CHORUS';
+      secIdx = 3;
+    } else if (step >= 48) {
+      section = 'VERSE B';
+      secIdx = 2;
+    } else if (step >= 16) {
+      section = 'VERSE A';
+      secIdx = 1;
+    }
+
+    const defaultLyrics = [
+      '♪ [Intro] Mở đầu giai điệu hầm ngục Hắc Thạch...',
+      '♪ [Verse A] Nhịp trống dồn dập dẫn bước chân anh hùng...',
+      '♪ [Verse B] Hoà âm biến tấu, kiếm khí rực sáng trong đêm...',
+      '♪ [Chorus] Điệp khúc bùng nổ! Chiến đấu vì vinh quang tối thượng!',
+      '♪ [Climax] Cao trào kết thúc, chuyển đoạn mượt mà!',
+    ];
+
+    return {
+      title: pat.name,
+      subtitle: pat.subtitle || MUSIC_SCALES[pat.style]?.label || 'Full Song',
+      section,
+      lyricLine: pat.lyrics?.[secIdx] || defaultLyrics[secIdx],
+      step,
+      totalSteps: total,
+      bpm: pat.bpm,
+      isExternalMp3: false,
+    };
+  }
+
+  // Play an uploaded or streamed MP3/WAV audio file as the active BGM song
+  public playExternalAudioFile(url: string, title: string) {
+    this.stopBgm();
+    this.externalAudioTitle = title;
+    if (typeof window === 'undefined') return;
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = 0.55;
+    this.externalAudio = audio;
+    if (!this.bgmMuted) {
+      audio.play().catch(() => {});
+    }
+  }
+
+  public clearExternalAudio() {
+    if (this.externalAudio) {
+      this.externalAudio.pause();
+      this.externalAudio.src = '';
+      this.externalAudio = null;
+      this.externalAudioTitle = null;
+    }
+  }
+
   // ==========================================================================
-  // ALGORITHMIC 8-BIT MUSIC GENERATOR TOOL (Máy Sáng Tác Nhạc 8-Bit Cho Game)
+  // AI MULTI-SECTION SONG COMPOSER (Sáng Tác Bài Hát Đầy Đủ 5 Đoạn Bằng AI)
+  // ==========================================================================
+  public async composeAiSongFromPrompt(
+    promptText: string,
+    preferredStyle: MusicStyle = 'samurai_pentatonic',
+    preferredBpm: number = 148
+  ): Promise<ChiptunePattern> {
+    this.clearExternalAudio();
+
+    try {
+      const response = await fetch('/api/music/compose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          promptText,
+          preferredStyle,
+          preferredBpm,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const style: MusicStyle =
+          data.style && MUSIC_SCALES[data.style as MusicStyle]
+            ? (data.style as MusicStyle)
+            : preferredStyle;
+        const bpm = Math.max(
+          95,
+          Math.min(185, Number(data.bpm) || preferredBpm)
+        );
+        const vMotif = Array.from({ length: 16 }, (_, i) =>
+          typeof data.verseMotif?.[i] === 'number' ? data.verseMotif[i] : 2
+        );
+        const cMotif = Array.from({ length: 16 }, (_, i) =>
+          typeof data.chorusMotif?.[i] === 'number' ? data.chorusMotif[i] : 6
+        );
+        const lyrics: [string, string, string, string, string] = [
+          data.lyrics?.[0] || '♪ [Intro] Giai điệu mở màn vang lên...',
+          data.lyrics?.[1] || '♪ [Verse 1] Bước vào mê cung bóng tối...',
+          data.lyrics?.[2] || '♪ [Verse 2] Kiếm quang rực sáng dẫn đường...',
+          data.lyrics?.[3] || '♪ [Chorus] Bùng nổ sức mạnh anh hùng bất diệt!',
+          data.lyrics?.[4] || '♪ [Climax] Chiến thắng vang dội khắp hầm ngục!',
+        ];
+
+        const aiSong = composeFullSong128({
+          name: data.songTitle || `AI Song: ${promptText.slice(0, 22)}`,
+          subtitle: `AI Composed Song · ${bpm} BPM`,
+          style,
+          bpm,
+          verseMotif: vMotif,
+          chorusMotif: cMotif,
+          chordProgVerse: [0, 5, 3, 4],
+          chordProgChorus: [5, 3, 0, 4],
+          lyrics,
+        });
+
+        this.customPattern = aiSong;
+        this.presets.dungeon = aiSong;
+        this.startBgm('custom');
+        return aiSong;
+      }
+    } catch {
+      // Fallback to algorithmic full-song composer if server request fails
+    }
+
+    return this.generateProceduralSong(preferredStyle, preferredBpm, promptText);
+  }
+
+  // ==========================================================================
+  // ALGORITHMIC 128-STEP FULL SONG GENERATOR (Bản Nhạc Dài 5 Phân Đoạn)
   // ==========================================================================
   public generateProceduralSong(
     style: MusicStyle = 'samurai_pentatonic',
-    bpm: number = 148
+    bpm: number = 148,
+    customTitle?: string
   ): ChiptunePattern {
-    const scaleCfg = SCALES[style] || SCALES.heroic_minor;
-    const root = scaleCfg.root;
-    const notes = scaleCfg.intervals;
+    this.clearExternalAudio();
+    const scaleCfg = MUSIC_SCALES[style] || MUSIC_SCALES.heroic_minor;
 
-    const lead: number[] = [];
-    const arp: number[] = [];
-    const bass: number[] = [];
-    const drums: ('none' | 'kick' | 'snare' | 'hat' | 'kick_hat')[] = [];
+    const verseMotif: number[] = [];
+    const chorusMotif: number[] = [];
+    let vCur = 3;
+    let cCur = 6;
 
-    // Choose a 4-bar chord root progression (in scale indices)
-    const progressions = [
-      [0, 5, 3, 4],
-      [0, 3, 5, 4],
-      [0, 2, 4, 3],
-      [0, 6, 5, 4],
-    ];
-    const prog = progressions[Math.floor(Math.random() * progressions.length)];
-
-    let currentNoteIdx = 4;
-    for (let step = 0; step < 32; step++) {
-      const bar = Math.floor(step / 8);
-      const chordDegree = prog[bar % 4];
-      const bassSemi = notes[chordDegree % notes.length];
-
-      // 1. Bassline (Octave -1 and Octave 0)
-      if (step % 2 === 0) {
-        bass.push(semiToFreq(root * 0.5, bassSemi));
+    for (let i = 0; i < 16; i++) {
+      if (i % 8 === 7 && Math.random() < 0.45) {
+        verseMotif.push(-1);
       } else {
-        bass.push(semiToFreq(root, bassSemi));
-      }
-
-      // 2. Arpeggio (Cycle 1 - 3 - 5 of the current chord)
-      const arpOffset = [0, 2, 4, 2][step % 4];
-      const arpSemi = notes[(chordDegree + arpOffset) % notes.length];
-      arp.push(semiToFreq(root, arpSemi));
-
-      // 3. Lead Melody (Motif with rhythmic rests & climax on bar 3-4)
-      if (step % 8 === 7 && Math.random() < 0.45) {
-        lead.push(0); // Breath rest
-      } else {
-        const delta = [-2, -1, 1, 1, 2, 0][Math.floor(Math.random() * 6)];
-        currentNoteIdx = Math.max(
-          2,
-          Math.min(notes.length - 1, currentNoteIdx + delta)
+        vCur = Math.max(
+          0,
+          Math.min(8, vCur + [-2, -1, 0, 1, 2][Math.floor(Math.random() * 5)])
         );
-        if (step % 8 === 0) {
-          currentNoteIdx = (chordDegree + 4) % notes.length;
-        }
-        lead.push(semiToFreq(root * 2, notes[currentNoteIdx]));
+        verseMotif.push(vCur);
       }
 
-      // 4. 8-Bit Drum Groove
-      if (step >= 28) {
-        drums.push(step % 2 === 0 ? 'snare' : 'kick_hat'); // Drum fill!
-      } else if (step % 4 === 0) {
-        drums.push('kick');
-      } else if (step % 4 === 2) {
-        drums.push('snare');
-      } else if (step % 2 === 1) {
-        drums.push(Math.random() < 0.35 ? 'kick_hat' : 'hat');
-      } else {
-        drums.push('hat');
-      }
+      cCur = Math.max(
+        4,
+        Math.min(11, cCur + [-1, 0, 1, 2, -2][Math.floor(Math.random() * 5)])
+      );
+      chorusMotif.push(cCur);
     }
 
-    const generated: ChiptunePattern = {
-      name: `${scaleCfg.label.split(' ')[0]} #${Math.floor(100 + Math.random() * 900)}`,
+    const generated = composeFullSong128({
+      name:
+        customTitle?.trim() ||
+        `${scaleCfg.name.split('(')[0].trim()} #${Math.floor(
+          100 + Math.random() * 899
+        )}`,
+      subtitle: 'Full 5-Section Procedural Song (128 Steps)',
       style,
       bpm,
-      lead,
-      arp,
-      bass,
-      drums,
-    };
+      verseMotif,
+      chorusMotif,
+      chordProgVerse: [0, 5, 3, 4],
+      chordProgChorus: [5, 3, 0, 4],
+      lyrics: [
+        '♪ [Intro] Giai điệu mở màn vang vọng từ vực sâu Hắc Thạch...',
+        '♪ [Verse 1] Từng bước chân dấn thân vào mê cung rực lửa và băng giá.',
+        '♪ [Verse 2] Lưỡi gươm phản đòn chớp nhoáng giữa muôn trùng vây hãm.',
+        '♪ [Chorus] Điệp khúc anh hùng! Bùng nổ tuyệt kỹ quét sạch bóng đêm!',
+        '♪ [Climax] Khúc vĩ thanh chiến thắng mở ra cánh cổng vinh quang!',
+      ],
+    });
 
     this.customPattern = generated;
-    // Also apply to dungeon & lobby if user generates a custom soundtrack!
     this.presets.dungeon = generated;
     this.startBgm('custom');
     return generated;
@@ -326,13 +610,29 @@ class SoundEngine {
   }
 
   public startBgm(track: BgmTrack) {
-    // If user created a custom track and enters dungeon, keep playing their custom track!
-    if (track === 'dungeon' && this.currentTrack === 'custom') {
+    if (
+      (track === 'dungeon' || track === 'frost' || track === 'magma') &&
+      this.currentTrack === 'custom'
+    ) {
       track = 'custom';
     }
+    if (this.currentTrack !== track) {
+      this.bgmStep = 0;
+    }
     this.currentTrack = track;
+
     if (this.bgmMuted || typeof window === 'undefined') {
       this.stopBgm();
+      return;
+    }
+
+    // If user loaded an external MP3 song, play that!
+    if (this.externalAudio) {
+      if (this.bgmTimer !== null) {
+        window.clearInterval(this.bgmTimer);
+        this.bgmTimer = null;
+      }
+      this.externalAudio.play().catch(() => {});
       return;
     }
 
@@ -342,8 +642,7 @@ class SoundEngine {
     }
 
     const pattern = this.getActivePattern();
-    // 16th-note step duration in ms from BPM
-    const stepMs = Math.round((60000 / pattern.bpm) / 2);
+    const stepMs = Math.round(60000 / pattern.bpm / 2);
 
     this.bgmTimer = window.setInterval(() => {
       if (this.bgmMuted) return;
@@ -352,55 +651,87 @@ class SoundEngine {
 
       const pat = this.getActivePattern();
       const now = ctx.currentTime;
-      const idx = this.bgmStep % pat.lead.length;
+      const totalSteps = pat.lead.length || 128;
+      const idx = this.bgmStep % totalSteps;
+      const isChorus = idx >= 80 && idx < 112;
       this.bgmStep++;
 
       const stepDur = stepMs / 1000;
 
-      // 1. Lead Channel (Pulse/Square with slight pitch vibrato)
+      // 1. Expressive Lead Synth (Filtered Sawtooth/Triangle + LFO Vibrato)
       if (this.channelEnabled.lead && pat.lead[idx] > 0) {
         const osc = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
         const gain = ctx.createGain();
-        osc.type = pat.style === 'arcade_major' ? 'triangle' : 'square';
+
+        osc.type = pat.style === 'arcade_major' ? 'triangle' : 'sawtooth';
         osc.frequency.setValueAtTime(pat.lead[idx], now);
 
-        const dur = stepDur * 0.85;
-        gain.gain.setValueAtTime(0.028, now);
+        // Subtle pitch vibrato on Chorus & held notes
+        if (isChorus || idx % 2 === 0) {
+          const lfo = ctx.createOscillator();
+          const lfoGain = ctx.createGain();
+          lfo.frequency.value = 5.5;
+          lfoGain.gain.value = isChorus ? 4.2 : 2.2;
+          lfo.connect(lfoGain);
+          lfoGain.connect(osc.frequency);
+          lfo.start(now);
+          lfo.stop(now + stepDur * 1.15);
+        }
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(isChorus ? 2800 : 2100, now);
+        filter.frequency.exponentialRampToValueAtTime(750, now + stepDur * 0.95);
+
+        const dur = stepDur * (isChorus ? 1.08 : 0.92);
+        const peakGain = isChorus ? 0.036 : 0.028;
+        gain.gain.setValueAtTime(0.002, now);
+        gain.gain.linearRampToValueAtTime(peakGain, now + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
 
-        osc.connect(gain);
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + dur + 0.01);
+        osc.stop(now + dur + 0.015);
       }
 
-      // 2. Arpeggio Harmony Channel
+      // 2. Polyphonic Chord Pad & Arpeggio Channel
       if (this.channelEnabled.arp && pat.arp[idx] > 0) {
         const aOsc = ctx.createOscillator();
+        const aFilter = ctx.createBiquadFilter();
         const aGain = ctx.createGain();
-        aOsc.type = 'square';
-        aOsc.frequency.setValueAtTime(pat.arp[idx], now);
-        aOsc.frequency.setValueAtTime(pat.arp[idx] * 1.25, now + stepDur * 0.45);
 
-        const dur = stepDur * 0.78;
-        aGain.gain.setValueAtTime(0.014, now);
+        aOsc.type = isChorus ? 'sawtooth' : 'triangle';
+        aOsc.frequency.setValueAtTime(pat.arp[idx], now);
+        aOsc.frequency.setValueAtTime(
+          pat.arp[idx] * (isChorus ? 1.5 : 1.25),
+          now + stepDur * 0.48
+        );
+
+        aFilter.type = 'lowpass';
+        aFilter.frequency.setValueAtTime(1650, now);
+
+        const dur = stepDur * 0.88;
+        aGain.gain.setValueAtTime(isChorus ? 0.02 : 0.015, now);
         aGain.gain.exponentialRampToValueAtTime(0.0005, now + dur);
 
-        aOsc.connect(aGain);
+        aOsc.connect(aFilter);
+        aFilter.connect(aGain);
         aGain.connect(ctx.destination);
         aOsc.start(now);
         aOsc.stop(now + dur + 0.01);
       }
 
-      // 3. Deep Sub-Bass Channel
+      // 3. Warm Sub-Bass Channel
       if (this.channelEnabled.bass && pat.bass[idx] > 0) {
         const bOsc = ctx.createOscillator();
         const bGain = ctx.createGain();
         bOsc.type = 'triangle';
         bOsc.frequency.setValueAtTime(pat.bass[idx], now);
 
-        const dur = stepDur * 0.92;
-        bGain.gain.setValueAtTime(0.052, now);
+        const dur = stepDur * 0.95;
+        bGain.gain.setValueAtTime(isChorus ? 0.062 : 0.052, now);
         bGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
         bOsc.connect(bGain);
@@ -409,35 +740,35 @@ class SoundEngine {
         bOsc.stop(now + dur + 0.01);
       }
 
-      // 4. 8-Bit Percussion Drum Kit (Kick / Snare / Hi-Hat)
+      // 4. Full Percussion Kit (Kick / Snare / Hi-Hat / Crash)
       if (this.channelEnabled.drums) {
         const drum = pat.drums[idx];
-        if (drum === 'kick' || drum === 'kick_hat') {
+        if (drum === 'kick' || drum === 'kick_hat' || drum === 'crash') {
           const kOsc = ctx.createOscillator();
           const kGain = ctx.createGain();
           kOsc.type = 'sine';
-          kOsc.frequency.setValueAtTime(145, now);
-          kOsc.frequency.exponentialRampToValueAtTime(36, now + 0.065);
-          kGain.gain.setValueAtTime(0.065, now);
-          kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+          kOsc.frequency.setValueAtTime(150, now);
+          kOsc.frequency.exponentialRampToValueAtTime(34, now + 0.075);
+          kGain.gain.setValueAtTime(0.072, now);
+          kGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
           kOsc.connect(kGain);
           kGain.connect(ctx.destination);
           kOsc.start(now);
-          kOsc.stop(now + 0.075);
+          kOsc.stop(now + 0.085);
         }
-        if (drum === 'snare') {
-          // Noise burst snare
-          const bufLen = Math.floor(ctx.sampleRate * 0.065);
+        if (drum === 'snare' || drum === 'crash') {
+          const dur = drum === 'crash' ? 0.18 : 0.07;
+          const bufLen = Math.floor(ctx.sampleRate * dur);
           const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
           const ch = buf.getChannelData(0);
           for (let i = 0; i < bufLen; i++) {
-            ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.4));
+            ch[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.42));
           }
           const src = ctx.createBufferSource();
           src.buffer = buf;
           const nGain = ctx.createGain();
-          nGain.gain.setValueAtTime(0.036, now);
-          nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+          nGain.gain.setValueAtTime(drum === 'crash' ? 0.042 : 0.036, now);
+          nGain.gain.exponentialRampToValueAtTime(0.001, now + dur);
           src.connect(nGain);
           nGain.connect(ctx.destination);
           src.start(now);
@@ -445,9 +776,9 @@ class SoundEngine {
           const hOsc = ctx.createOscillator();
           const hGain = ctx.createGain();
           hOsc.type = 'square';
-          hOsc.frequency.setValueAtTime(1480, now);
-          hOsc.frequency.exponentialRampToValueAtTime(620, now + 0.022);
-          hGain.gain.setValueAtTime(0.012, now);
+          hOsc.frequency.setValueAtTime(1580, now);
+          hOsc.frequency.exponentialRampToValueAtTime(660, now + 0.022);
+          hGain.gain.setValueAtTime(0.011, now);
           hGain.gain.exponentialRampToValueAtTime(0.0005, now + 0.024);
           hOsc.connect(hGain);
           hGain.connect(ctx.destination);
@@ -463,20 +794,23 @@ class SoundEngine {
       window.clearInterval(this.bgmTimer);
       this.bgmTimer = null;
     }
+    if (this.externalAudio) {
+      this.externalAudio.pause();
+    }
   }
 
-  // Export current Chiptune Track to a downloadable 16-bit PCM .WAV Blob URL!
+  // Export full 128-step Song Track to a downloadable 16-bit PCM .WAV Blob URL!
   public exportCurrentTrackWavUrl(): string {
     const pat = this.getActivePattern();
     const sampleRate = 22050;
     const stepSec = 60 / pat.bpm / 2;
-    const totalSteps = 64; // 2 full loops
+    const totalSteps = pat.lead.length || 128;
     const durationSec = totalSteps * stepSec;
     const numSamples = Math.floor(sampleRate * durationSec);
     const pcm = new Float32Array(numSamples);
 
     for (let step = 0; step < totalSteps; step++) {
-      const idx = step % 32;
+      const idx = step % totalSteps;
       const startSample = Math.floor(step * stepSec * sampleRate);
       const endSample = Math.min(
         numSamples,
@@ -489,29 +823,35 @@ class SoundEngine {
 
       for (let s = startSample; s < endSample; s++) {
         const localT = (s - startSample) / sampleRate;
-        const env = Math.exp(-localT * 6.5);
+        const env = Math.exp(-localT * 5.2);
         let sample = 0;
 
         if (leadF > 0) {
-          sample += (Math.sin(2 * Math.PI * leadF * localT) >= 0 ? 0.18 : -0.18) * env;
+          const vibrato = Math.sin(2 * Math.PI * 5.5 * localT) * 2.5;
+          sample +=
+            Math.sin(2 * Math.PI * (leadF + vibrato) * localT) * 0.22 * env;
         }
         if (arpF > 0) {
-          const f = localT > stepSec * 0.45 ? arpF * 1.25 : arpF;
-          sample += (Math.sin(2 * Math.PI * f * localT) >= 0 ? 0.09 : -0.09) * env;
+          const f = localT > stepSec * 0.48 ? arpF * 1.25 : arpF;
+          sample += Math.sin(2 * Math.PI * f * localT) * 0.12 * env;
         }
         if (bassF > 0) {
-          sample += Math.asin(Math.sin(2 * Math.PI * bassF * localT)) * 0.18 * env;
+          sample +=
+            Math.asin(Math.sin(2 * Math.PI * bassF * localT)) * 0.2 * env;
         }
-        if (drum === 'snare' && localT < 0.06) {
-          sample += (Math.random() * 2 - 1) * 0.16 * Math.exp(-localT * 30);
-        } else if ((drum === 'kick' || drum === 'kick_hat') && localT < 0.07) {
-          sample += Math.sin(2 * Math.PI * (140 - localT * 1200) * localT) * 0.25;
+        if ((drum === 'snare' || drum === 'crash') && localT < 0.08) {
+          sample += (Math.random() * 2 - 1) * 0.16 * Math.exp(-localT * 28);
+        } else if (
+          (drum === 'kick' || drum === 'kick_hat' || drum === 'crash') &&
+          localT < 0.075
+        ) {
+          sample +=
+            Math.sin(2 * Math.PI * (145 - localT * 1200) * localT) * 0.26;
         }
         pcm[s] = Math.max(-0.95, Math.min(0.95, sample));
       }
     }
 
-    // Encode WAV header
     const buffer = new ArrayBuffer(44 + numSamples * 2);
     const view = new DataView(buffer);
     const writeStr = (offset: number, str: string) => {
@@ -542,7 +882,6 @@ class SoundEngine {
     return URL.createObjectURL(blob);
   }
 
-  // Tiếng "Click" cơ học đã tai khi bấm nút UI / Đổi Skin
   public playUiClick(highPitch = false) {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -566,7 +905,6 @@ class SoundEngine {
     osc.stop(now + 0.045);
   }
 
-  // Tiếng "CLANG!" kim loại đanh gọn khi chém phản đòn đạn
   public playDeflectClang() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -593,7 +931,6 @@ class SoundEngine {
     });
   }
 
-  // Tiếng bùng nổ Tuyệt Kỹ Tối Thượng (Ultimate Cast)
   public playUltimateCast() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -605,7 +942,10 @@ class SoundEngine {
       const gain = ctx.createGain();
       osc.type = idx % 2 === 0 ? 'sawtooth' : 'square';
       osc.frequency.setValueAtTime(f, now + idx * 0.03);
-      osc.frequency.exponentialRampToValueAtTime(f * 1.2, now + idx * 0.03 + 0.25);
+      osc.frequency.exponentialRampToValueAtTime(
+        f * 1.2,
+        now + idx * 0.03 + 0.25
+      );
 
       gain.gain.setValueAtTime(0.13, now + idx * 0.03);
       gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 0.26);
@@ -617,7 +957,6 @@ class SoundEngine {
     });
   }
 
-  // Tiếng còi báo hiệu Đợt Quái Mới (Wave 2 / Wave 3 Spawn)
   public playWaveSpawn() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -638,7 +977,6 @@ class SoundEngine {
     });
   }
 
-  // Tiếng "Ching!" rực rỡ khi mở khóa Tướng / Skin / Nhận Kim Cương
   public playChing() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -1124,4 +1462,3 @@ class SoundEngine {
 }
 
 export const sound = new SoundEngine();
-export { SCALES as MUSIC_SCALES };

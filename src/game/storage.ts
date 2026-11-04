@@ -288,14 +288,18 @@ export const DEFAULT_DAILY_QUESTS: DailyQuest[] = [
 export const DEFAULT_PROFILE: PlayerProfile = {
   playerName: 'Knight_01',
   avatarId: 'knight_helm',
-  soulGems: 850,
-  totalKills: 12,
+  soulGems: 350,
+  totalKills: 0,
   runsCompleted: 0,
   chestsOpened: 0,
   bossesDefeated: 0,
   bestEndlessWave: 0,
   maxWeaponUpgradeReached: 0,
   claimedAchievements: [],
+  starterPackClaimed: false,
+  lastDailyClaimDate: '',
+  dailyStreak: 0,
+  tutorialCompleted: false,
   selectedPetId: 'cat',
   upgrades: {
     hpLevel: 0,
@@ -472,6 +476,13 @@ export function loadProfile(): PlayerProfile {
       claimedAchievements: Array.isArray(parsed.claimedAchievements)
         ? parsed.claimedAchievements.filter((x: unknown) => typeof x === 'string')
         : [],
+      starterPackClaimed: Boolean(parsed.starterPackClaimed),
+      lastDailyClaimDate:
+        typeof parsed.lastDailyClaimDate === 'string'
+          ? parsed.lastDailyClaimDate
+          : '',
+      dailyStreak: safeNum(parsed.dailyStreak, 0),
+      tutorialCompleted: Boolean(parsed.tutorialCompleted),
       selectedPetId:
         parsed.selectedPetId === 'cat' ||
         parsed.selectedPetId === 'mini_slime' ||

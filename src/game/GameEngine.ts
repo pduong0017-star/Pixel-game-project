@@ -132,6 +132,9 @@ export class IsometricGameEngine {
     maxSkillCooldown: 4.5,
     ultCooldown: 0,
     maxUltCooldown: 10.0,
+    weaponSkillCooldown: 0,
+    maxWeaponSkillCooldown: 4.5,
+    attackProcCount: 0,
     comboStep: 0,
     comboCount: 0,
     comboTimer: 0,
@@ -157,6 +160,10 @@ export class IsometricGameEngine {
     moveTarget: null as { gx: number; gy: number } | null,
   };
 
+  // Interactive Newbie Tutorial State in Living Room
+  private tutorialStep: number = 0;
+  private tutorialMovedDist: number = 0;
+
   // Companion Pet state
   private pet = {
     gx: 10.2,
@@ -177,6 +184,7 @@ export class IsometricGameEngine {
       | 'dash'
       | 'skill'
       | 'ultimate'
+      | 'weapon_skill'
       | 'potion'
       | 'interact'
       | 'switch_weapon'
@@ -184,9 +192,10 @@ export class IsometricGameEngine {
     expiresAt: number;
   } = { action: null, expiresAt: 0 };
 
-  // Camera & Juice
+  // Camera & Juice (with Landscape Wide-Field Zoom)
   private camX: number = 0;
   private camY: number = 0;
+  private cameraZoomPreset: number = 0.86;
   private shakeMag: number = 0;
   private shakeX: number = 0;
   private shakeY: number = 0;
@@ -417,6 +426,9 @@ export class IsometricGameEngine {
       } else if (code === 'Digit3' || code === 'KeyF' || code === 'KeyU') {
         e.preventDefault();
         this.bufferAction('ultimate');
+      } else if (code === 'KeyC' || code === 'KeyV' || code === 'Digit4' || code === 'KeyG') {
+        e.preventDefault();
+        this.bufferAction('weapon_skill');
       } else if (code === 'Digit2' || code === 'KeyH') {
         e.preventDefault();
         this.bufferAction('potion');
@@ -504,6 +516,7 @@ export class IsometricGameEngine {
       | 'dash'
       | 'skill'
       | 'ultimate'
+      | 'weapon_skill'
       | 'potion'
       | 'interact'
       | 'switch_weapon'
@@ -514,6 +527,33 @@ export class IsometricGameEngine {
     };
   }
 
+  private getStageBgmTrack() {
+    if (this.dungeon?.inLivingRoom) return 'lobby' as const;
+    if (this.floorNum === 2) return 'frost' as const;
+    if (this.floorNum >= 3) return 'magma' as const;
+    return 'dungeon' as const;
+  }
+
+  public cycleCameraZoom(): number {
+    const presets = [0.74, 0.86, 1.0];
+    const curIdx = presets.findIndex(
+      (z) => Math.abs(z - this.cameraZoomPreset) < 0.04
+    );
+    this.cameraZoomPreset = presets[(curIdx + 1) % presets.length];
+    return this.cameraZoomPreset;
+  }
+
+  public getCameraZoomPreset(): number {
+    return this.cameraZoomPreset;
+  }
+
+  private getEffectiveZoom(): number {
+    const h = typeof window !== 'undefined' ? window.innerHeight : 720;
+    // Automatically widen field of view on short landscape mobile screens
+    const heightScale = h < 520 ? Math.max(0.76, h / 540) : 1.0;
+    return Number((this.cameraZoomPreset * heightScale).toFixed(3));
+  }
+
   public setGameState(state: GameState) {
     this.gameState = state;
     if (state === 'SPLASH_TITLE') {
@@ -521,7 +561,7 @@ export class IsometricGameEngine {
     } else if (state === 'TITLE_MENU') {
       sound.startBgm('lobby');
     } else if (state === 'PLAYING') {
-      sound.startBgm(this.dungeon?.inLivingRoom ? 'lobby' : 'dungeon');
+      sound.startBgm(this.getStageBgmTrack());
     }
     this.onStateChange(state);
     this.syncHud();
@@ -560,6 +600,8 @@ export class IsometricGameEngine {
     this.player.maxSkillCooldown = cfg.skillCooldown;
     this.player.maxUltCooldown = cfg.ultCooldown || 10.0;
     this.player.ultCooldown = 0;
+    this.player.weaponSkillCooldown = 0;
+    this.player.attackProcCount = 0;
     this.player.gold =
       30 + bonusGold + (this.selectedGameMode === 'BOSS_RUSH' ? 45 : 0);
 
@@ -577,6 +619,7 @@ export class IsometricGameEngine {
     this.player.weapons = [primaryWpn, secondaryWpn];
     this.player.weaponUpgrades = [0, 0];
     this.player.activeWeaponIdx = 0;
+    this.player.maxWeaponSkillCooldown = WEAPONS[primaryWpn].skillCd || 4.5;
     this.player.potions = 2 + (this.profile.preRunPotion ? 1 : 0);
     this.player.maxPotions = 4;
 
@@ -606,6 +649,11 @@ export class IsometricGameEngine {
     this.syncHud();
   }
 
+  public setTutorialStep(step: number) {
+    this.tutorialStep = step;
+    this.syncHud();
+  }
+
   // Enter the Living Room Hub (Phòng Chờ Soul Knight)
   public enterLivingRoom(
     cls: HeroClassId = this.selectedClass,
@@ -618,6 +666,8 @@ export class IsometricGameEngine {
     this.soulGemsEarnedThisRun = 0;
     this.stageBannerTimer = 0;
     this.bossWarningTimer = 0;
+    this.tutorialStep = this.profile.tutorialCompleted ? 5 : 0;
+    this.tutorialMovedDist = 0;
 
     this.player = {
       gx: 11.5,
@@ -655,6 +705,9 @@ export class IsometricGameEngine {
       maxSkillCooldown: 4.5,
       ultCooldown: 0,
       maxUltCooldown: 10.0,
+      weaponSkillCooldown: 0,
+      maxWeaponSkillCooldown: 4.5,
+      attackProcCount: 0,
       comboStep: 0,
       comboCount: 0,
       comboTimer: 0,
@@ -712,10 +765,12 @@ export class IsometricGameEngine {
 
   public startNewRun(
     cls: HeroClassId = this.selectedClass,
-    diff: DifficultyId = this.selectedDifficulty
+    diff: DifficultyId = this.selectedDifficulty,
+    mode: GameModeId = this.selectedGameMode
   ) {
     this.selectedClass = cls;
     this.selectedDifficulty = diff;
+    this.selectedGameMode = mode;
     this.soulGemsEarnedThisRun = 0;
     this.applyHeroStatsAndUpgrades(cls);
     this.loadFloor(1);
@@ -774,6 +829,7 @@ export class IsometricGameEngine {
       DIFFICULTIES[this.selectedDifficulty].accent,
       1.25
     );
+    sound.startBgm(this.getStageBgmTrack());
     this.syncHud();
   }
 
@@ -841,6 +897,8 @@ export class IsometricGameEngine {
     if (!this.player.weapons[1]) return;
     this.player.activeWeaponIdx = this.player.activeWeaponIdx === 0 ? 1 : 0;
     const wpn = this.getActiveWeapon();
+    this.player.maxWeaponSkillCooldown = wpn.skillCd || 4.5;
+    this.player.attackProcCount = 0;
     sound.playWeaponSwitch();
     this.addFloatingText(
       this.player.gx,
@@ -850,6 +908,9 @@ export class IsometricGameEngine {
       wpn.rarityColor,
       1.0
     );
+    if (this.dungeon.inLivingRoom && this.tutorialStep === 2) {
+      this.tutorialStep = 3;
+    }
     this.syncHud();
   }
 
@@ -879,8 +940,9 @@ export class IsometricGameEngine {
   private screenToGrid(sx: number, sy: number) {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const rx = sx - w / 2 + this.camX;
-    const ry = sy - h / 2 + this.camY;
+    const zoom = this.getEffectiveZoom();
+    const rx = (sx - w / 2) / zoom + this.camX;
+    const ry = (sy - h / 2) / zoom + this.camY;
     return {
       gx: rx / TILE_SIZE,
       gy: ry / TILE_SIZE,
@@ -1320,6 +1382,7 @@ export class IsometricGameEngine {
     p.dashCooldown = Math.max(0, p.dashCooldown - dt);
     p.skillCooldown = Math.max(0, p.skillCooldown - dt);
     p.ultCooldown = Math.max(0, p.ultCooldown - dt);
+    p.weaponSkillCooldown = Math.max(0, p.weaponSkillCooldown - dt);
     p.invulnTimer = Math.max(0, p.invulnTimer - dt);
     p.hitFlash = Math.max(0, p.hitFlash - dt);
     p.swingTimer = Math.max(0, p.swingTimer - dt);
@@ -1411,6 +1474,9 @@ export class IsometricGameEngine {
       } else if (act === 'ultimate' && p.ultCooldown <= 0) {
         this.inputBuffer.action = null;
         this.performPlayerUltimate();
+      } else if (act === 'weapon_skill' && p.weaponSkillCooldown <= 0) {
+        this.inputBuffer.action = null;
+        this.performWeaponSkill();
       } else if (act === 'potion') {
         this.inputBuffer.action = null;
         this.usePotion();
@@ -1472,6 +1538,26 @@ export class IsometricGameEngine {
 
     if (this.isWalkable(nextGx, p.gy)) p.gx = nextGx;
     if (this.isWalkable(p.gx, nextGy)) p.gy = nextGy;
+
+    if (
+      this.dungeon.inLivingRoom &&
+      this.tutorialStep === 0 &&
+      Math.hypot(moveGx, moveGy) > 0.1
+    ) {
+      this.tutorialMovedDist += Math.hypot(moveGx, moveGy) * speed * dt;
+      if (this.tutorialMovedDist >= 2.2) {
+        this.tutorialStep = 1;
+        sound.playLevelUp();
+        this.addFloatingText(
+          p.gx,
+          p.gy,
+          30,
+          '✓ BƯỚC 1 HOÀN TẤT!',
+          '#34d399',
+          1.15
+        );
+      }
+    }
 
     // Magnetic pickup for Gold, Mana Orbs, EXP Gems, and Potions
     for (const item of this.dungeon.interactables) {
@@ -1673,6 +1759,21 @@ export class IsometricGameEngine {
     const scaledDamage = Math.round(
       wpn.damage * p.damageMultiplier * upgradeDmgMult
     );
+
+    p.attackProcCount = (p.attackProcCount || 0) + 1;
+    this.triggerWeaponPassiveProc(wpn, scaledDamage);
+    if (this.dungeon.inLivingRoom && this.tutorialStep === 1) {
+      this.tutorialStep = 2;
+      sound.playLevelUp();
+      this.addFloatingText(
+        p.gx,
+        p.gy,
+        30,
+        '✓ BƯỚC 2 HOÀN TẤT!',
+        '#34d399',
+        1.15
+      );
+    }
 
     // 1. MELEE WEAPON (3-Hit Combo Finisher + Tightened Blade Range + Soul Knight Bullet Deflection!)
     if (wpn.type === 'melee') {
@@ -1914,6 +2015,8 @@ export class IsometricGameEngine {
         piercing: wpn.piercing,
         explosive: Boolean(wpn.explosive || this.hasBoon('explosive_rounds')),
         chainLightning: wpn.chainLightning,
+        burnEffect: wpn.id === 'inferno_bow' || wpn.id === 'inferno_greataxe',
+        chillEffect: wpn.id === 'frost_laser',
       });
     }
 
@@ -1961,6 +2064,18 @@ export class IsometricGameEngine {
     p.squashY = 0.7;
     sound.playSkillCast();
     this.addShake(10.0);
+    if (this.dungeon.inLivingRoom && this.tutorialStep === 2) {
+      this.tutorialStep = 3;
+      sound.playLevelUp();
+      this.addFloatingText(
+        p.gx,
+        p.gy,
+        30,
+        '✓ BƯỚC 3 HOÀN TẤT!',
+        '#34d399',
+        1.15
+      );
+    }
 
     if (p.statueBlessing === 'paladin') {
       p.invulnTimer = Math.max(p.invulnTimer, 1.5);
@@ -2147,7 +2262,7 @@ export class IsometricGameEngine {
       p.gx,
       p.gy,
       38,
-      `★ ULTIMATE: ${cfg.ultName.toUpperCase()}! ★`,
+      `★ ULTIMATE: ${(cfg.ultName ?? cfg.skillName).toUpperCase()}! ★`,
       '#fde047',
       1.35
     );
@@ -2213,7 +2328,7 @@ export class IsometricGameEngine {
           explosive: true,
         });
       }
-    } else if (this.selectedClass === 'ranger') {
+    } else if (this.selectedClass === 'rogue') {
       // Storm of a Thousand Arrows: 18 High-Speed Piercing Emerald Bolts + Reset Dash/Skill
       p.dashCooldown = 0;
       p.skillCooldown = 0;
@@ -2326,6 +2441,696 @@ export class IsometricGameEngine {
     this.spawnParticles(p.gx, p.gy, 12, 42, '#fde047', 6.0);
   }
 
+  // Unique Auto-Proc Signature Passive for all 16 Weapons
+  private triggerWeaponPassiveProc(wpn: WeaponConfig, scaledDamage: number) {
+    const p = this.player;
+    const count = p.attackProcCount;
+
+    if (wpn.id === 'broadsword' && count % 3 === 0) {
+      for (let j = -1; j <= 1; j += 2) {
+        const ang = p.aimAngle + j * 0.22;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 14.5,
+          vy: Math.sin(ang) * 14.5,
+          damage: Math.round(scaledDamage * 0.7),
+          radius: 0.42,
+          maxLife: 0.45,
+          color: '#38bdf8',
+          coreColor: '#ffffff',
+          piercing: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 26, '⚔️ KIẾM KHÍ HỘ VỆ!', '#38bdf8', 0.95);
+    } else if (wpn.id === 'twin_daggers' && count % 3 === 0) {
+      p.dashCooldown = Math.max(0, p.dashCooldown - 0.65);
+      for (let j = -1; j <= 1; j++) {
+        const ang = p.aimAngle + j * 0.18;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 16.5,
+          vy: Math.sin(ang) * 16.5,
+          damage: Math.round(scaledDamage * 0.65),
+          radius: 0.32,
+          maxLife: 0.42,
+          color: '#34d399',
+          coreColor: '#ecfdf5',
+          piercing: true,
+        });
+      }
+    } else if (wpn.id === 'blood_katana' && count % 3 === 0) {
+      p.hp = Math.min(p.maxHp, p.hp + 4);
+      this.spawnProjectile({
+        fromPlayer: true,
+        gx: p.gx,
+        gy: p.gy,
+        vx: Math.cos(p.aimAngle) * 16.0,
+        vy: Math.sin(p.aimAngle) * 16.0,
+        damage: Math.round(scaledDamage * 0.9),
+        radius: 0.48,
+        maxLife: 0.52,
+        color: '#f43f5e',
+        coreColor: '#fecdd3',
+        piercing: true,
+      });
+      this.addFloatingText(p.gx, p.gy, 26, '🩸 HUYẾT NGUYỆT +4 HP!', '#f43f5e', 0.95);
+    } else if (wpn.id === 'void_scythe' && count % 3 === 0) {
+      p.mana = Math.min(p.maxMana, p.mana + 8);
+      for (const en of this.dungeon.enemies) {
+        const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+        if (d <= 4.2 && d > 0.6) {
+          en.gx += ((p.gx - en.gx) / d) * 0.75;
+          en.gy += ((p.gy - en.gy) / d) * 0.75;
+        }
+      }
+      this.spawnParticles(p.gx, p.gy, 10, 18, '#a855f7', 3.6);
+      this.addFloatingText(p.gx, p.gy, 26, '🌀 HÚT HỒN +8 MP!', '#c084fc', 0.95);
+    } else if (wpn.id === 'inferno_greataxe' && count % 3 === 0) {
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 9.5,
+          vy: Math.sin(ang) * 9.5,
+          damage: Math.round(scaledDamage * 0.6),
+          radius: 0.42,
+          maxLife: 0.45,
+          color: '#f97316',
+          coreColor: '#fef08a',
+          explosive: true,
+          burnEffect: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 26, '🔥 DUNG NHAM BÙNG NỔ!', '#f97316', 0.95);
+    } else if (wpn.id === 'thunder_warhammer' && count % 2 === 0) {
+      const target = this.findNearestEnemy(5.5);
+      if (target) {
+        this.triggerChainLightning(target, Math.round(scaledDamage * 0.8));
+      }
+      this.addFloatingText(p.gx, p.gy, 26, '⚡ LÔI CHẤN!', '#38bdf8', 0.95);
+    } else if (wpn.id === 'dragon_lance' && count % 3 === 0) {
+      this.spawnProjectile({
+        fromPlayer: true,
+        gx: p.gx,
+        gy: p.gy,
+        vx: Math.cos(p.aimAngle) * 17.5,
+        vy: Math.sin(p.aimAngle) * 17.5,
+        damage: Math.round(scaledDamage * 1.15),
+        radius: 0.5,
+        maxLife: 0.55,
+        color: '#fb923c',
+        coreColor: '#fef08a',
+        piercing: true,
+        burnEffect: true,
+      });
+      this.addFloatingText(p.gx, p.gy, 26, '🐉 MŨI GIÁO HỎA LONG!', '#fb923c', 0.95);
+    } else if (wpn.id === 'excalibur' && count % 3 === 0) {
+      p.armor = Math.min(p.maxArmor, p.armor + 6);
+      for (let j = -1; j <= 1; j++) {
+        const ang = p.aimAngle + j * 0.2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 16.5,
+          vy: Math.sin(ang) * 16.5,
+          damage: Math.round(scaledDamage * 0.9),
+          radius: 0.52,
+          maxLife: 0.65,
+          color: '#fde047',
+          coreColor: '#ffffff',
+          piercing: true,
+          explosive: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 28, '✨ THÁNH QUANG +6 GIÁP!', '#fde047', 1.05);
+    } else if (wpn.id === 'pioneer_pistol' && count % 4 === 0) {
+      this.spawnProjectile({
+        fromPlayer: true,
+        gx: p.gx,
+        gy: p.gy,
+        vx: Math.cos(p.aimAngle) * 19.0,
+        vy: Math.sin(p.aimAngle) * 19.0,
+        damage: Math.round(scaledDamage * 1.85),
+        radius: 0.44,
+        maxLife: 0.65,
+        color: '#f59e0b',
+        coreColor: '#ffffff',
+        piercing: true,
+        explosive: true,
+      });
+      this.addFloatingText(p.gx, p.gy, 24, '💥 ĐẠN BẠC CHÍ MẠNG!', '#fde047', 0.95);
+    } else if (wpn.id === 'splitter_shotgun' && count % 3 === 0) {
+      for (let j = -1; j <= 1; j++) {
+        const ang = p.aimAngle + j * 0.25;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 14.0,
+          vy: Math.sin(ang) * 14.0,
+          damage: Math.round(scaledDamage * 1.25),
+          radius: 0.42,
+          maxLife: 0.5,
+          color: '#fb923c',
+          coreColor: '#ffffff',
+          explosive: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '🔥 MẢNH VỠ BÙNG NỔ!', '#fb923c', 0.95);
+    } else if (wpn.id === 'plasma_rifle' && count % 5 === 0) {
+      this.spawnProjectile({
+        fromPlayer: true,
+        gx: p.gx,
+        gy: p.gy,
+        vx: Math.cos(p.aimAngle) * 15.0,
+        vy: Math.sin(p.aimAngle) * 15.0,
+        damage: Math.round(scaledDamage * 1.9),
+        radius: 0.54,
+        maxLife: 0.65,
+        color: '#38bdf8',
+        coreColor: '#ffffff',
+        piercing: true,
+        chainLightning: true,
+      });
+      this.addFloatingText(p.gx, p.gy, 24, '⚡ QUẢ CẦU PLASMA!', '#38bdf8', 0.95);
+    } else if (wpn.id === 'gatling_minigun' && count % 8 === 0) {
+      for (let j = -1; j <= 1; j += 2) {
+        const ang = p.aimAngle + j * 0.16;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 16.5,
+          vy: Math.sin(ang) * 16.5,
+          damage: Math.round(scaledDamage * 2.1),
+          radius: 0.45,
+          maxLife: 0.65,
+          color: '#f43f5e',
+          coreColor: '#fde047',
+          explosive: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '🚀 TÊN LỬA MINI!', '#f43f5e', 0.95);
+    } else if (wpn.id === 'sniper_railgun' && count % 2 === 0) {
+      for (const en of this.dungeon.enemies) {
+        if (Math.hypot(en.gx - p.gx, en.gy - p.gy) <= 7.5) {
+          this.triggerChainLightning(en, Math.round(scaledDamage * 0.55));
+          break;
+        }
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '⚡ XUNG ĐIỆN TỪ!', '#22d3ee', 0.95);
+    } else if (wpn.id === 'frost_laser' && count % 5 === 0) {
+      for (let i = 0; i < 8; i++) {
+        const ang = (i / 8) * Math.PI * 2;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 11.5,
+          vy: Math.sin(ang) * 11.5,
+          damage: Math.round(scaledDamage * 0.95),
+          radius: 0.38,
+          maxLife: 0.48,
+          color: '#38bdf8',
+          coreColor: '#ffffff',
+          chillEffect: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '❄️ BĂNG GIÁ TỨC THỜI!', '#38bdf8', 0.95);
+    } else if (wpn.id === 'thunder_staff' && count % 3 === 0) {
+      const target = this.findNearestEnemy(8.0);
+      if (target) {
+        this.damageEnemy(target, Math.round(scaledDamage * 1.15), 0, 0);
+        const s1 = this.gridToWorld(target.gx, target.gy - 2.5, 42);
+        const s2 = this.gridToWorld(target.gx, target.gy, 12);
+        this.lightningBolts.push({
+          x1: s1.x,
+          y1: s1.y,
+          x2: s2.x,
+          y2: s2.y,
+          timer: 0.25,
+          maxTimer: 0.25,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '🌩️ THIÊN LÔI GIÁNG!', '#c084fc', 0.95);
+    } else if (wpn.id === 'inferno_bow' && count % 3 === 0) {
+      for (let j = -1; j <= 1; j++) {
+        const ang = p.aimAngle + j * 0.16;
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(ang) * 17.5,
+          vy: Math.sin(ang) * 17.5,
+          damage: Math.round(scaledDamage * 0.85),
+          radius: 0.44,
+          maxLife: 0.65,
+          color: '#f97316',
+          coreColor: '#fef08a',
+          piercing: true,
+          explosive: true,
+          burnEffect: true,
+        });
+      }
+      this.addFloatingText(p.gx, p.gy, 24, '🦅 PHƯỢNG HOÀNG LỬA!', '#f97316', 0.95);
+    }
+  }
+
+  // Dedicated Active Weapon Skill ("CHIÊU VŨ KHÍ" - Key C / V / 4 or HUD Button)
+  public performWeaponSkill() {
+    const p = this.player;
+    if (p.weaponSkillCooldown > 0) return;
+    const wpn = this.getActiveWeapon();
+    const energyCost = wpn.skillEnergy || 15;
+
+    if (this.dungeon.inLivingRoom && p.mana < energyCost) {
+      p.mana = p.maxMana;
+    }
+
+    if (p.mana < energyCost) {
+      this.addFloatingText(p.gx, p.gy, 28, `CẦN ${energyCost} MP!`, '#60a5fa', 1.05);
+      sound.playUiClick(false);
+      return;
+    }
+
+    p.mana = Math.max(0, p.mana - energyCost);
+    p.maxWeaponSkillCooldown = wpn.skillCd || 5.0;
+    p.weaponSkillCooldown = p.maxWeaponSkillCooldown;
+    p.squashX = 1.35;
+    p.squashY = 0.72;
+
+    sound.playSkillCast();
+    this.addShake(8.5);
+
+    if (this.dungeon.inLivingRoom && this.tutorialStep === 1) {
+      this.tutorialStep = 2;
+    }
+
+    const activeUpgradeLvl = p.weaponUpgrades[p.activeWeaponIdx] || 0;
+    const baseDmg = Math.round(
+      wpn.damage * p.damageMultiplier * (1 + activeUpgradeLvl * 0.22)
+    );
+
+    const skillTitle = (wpn.skillName || 'TUYỆT KỸ VŨ KHÍ').toUpperCase();
+    this.addFloatingText(p.gx, p.gy, 34, `★ ${skillTitle}!`, wpn.rarityColor, 1.22);
+    this.spawnParticles(p.gx, p.gy, 12, 26, wpn.color, 4.5);
+
+    switch (wpn.id) {
+      case 'broadsword': {
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: p.aimAngle,
+          arcSpread: Math.PI * 1.4,
+          radius: 3.4,
+          timer: 0.28,
+          maxTimer: 0.28,
+          color: '#38bdf8',
+          coreColor: '#ffffff',
+        });
+        for (let j = -1; j <= 1; j++) {
+          const ang = p.aimAngle + j * 0.24;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 16.0,
+            vy: Math.sin(ang) * 16.0,
+            damage: Math.round(baseDmg * 1.75),
+            radius: 0.52,
+            maxLife: 0.65,
+            color: '#38bdf8',
+            coreColor: '#ffffff',
+            piercing: true,
+          });
+        }
+        break;
+      }
+      case 'twin_daggers': {
+        p.invulnTimer = Math.max(p.invulnTimer, 0.65);
+        const dashX = p.gx + Math.cos(p.aimAngle) * 2.2;
+        const dashY = p.gy + Math.sin(p.aimAngle) * 2.2;
+        if (this.isWalkable(dashX, p.gy)) p.gx = dashX;
+        if (this.isWalkable(p.gx, dashY)) p.gy = dashY;
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 15.5,
+            vy: Math.sin(ang) * 15.5,
+            damage: Math.round(baseDmg * 1.65),
+            radius: 0.38,
+            maxLife: 0.55,
+            color: '#34d399',
+            coreColor: '#ffffff',
+            piercing: true,
+          });
+        }
+        break;
+      }
+      case 'blood_katana': {
+        p.invulnTimer = Math.max(p.invulnTimer, 0.7);
+        const stepX = p.gx + Math.cos(p.aimAngle) * 2.6;
+        const stepY = p.gy + Math.sin(p.aimAngle) * 2.6;
+        if (this.isWalkable(stepX, p.gy)) p.gx = stepX;
+        if (this.isWalkable(p.gx, stepY)) p.gy = stepY;
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: p.aimAngle,
+          arcSpread: Math.PI * 2,
+          radius: 3.6,
+          timer: 0.3,
+          maxTimer: 0.3,
+          color: '#f43f5e',
+          coreColor: '#fecdd3',
+        });
+        let healed = 0;
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+          if (d <= 3.8) {
+            this.damageEnemy(en, Math.round(baseDmg * 2.2), 0, 0);
+            healed += 8;
+          }
+        }
+        if (healed > 0) {
+          p.hp = Math.min(p.maxHp, p.hp + Math.min(24, healed));
+          this.addFloatingText(p.gx, p.gy, 26, `+${Math.min(24, healed)} HP`, '#4ade80', 1.1);
+        }
+        break;
+      }
+      case 'void_scythe': {
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: 0,
+          arcSpread: Math.PI * 2,
+          radius: 4.2,
+          timer: 0.32,
+          maxTimer: 0.32,
+          color: '#a855f7',
+          coreColor: '#f3e8ff',
+        });
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+          if (d <= 4.6) {
+            if (d > 0.8) {
+              en.gx += ((p.gx - en.gx) / d) * 1.4;
+              en.gy += ((p.gy - en.gy) / d) * 1.4;
+            }
+            this.damageEnemy(en, Math.round(baseDmg * 2.1), 0, 0);
+          }
+        }
+        break;
+      }
+      case 'inferno_greataxe': {
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: 0,
+          arcSpread: Math.PI * 2,
+          radius: 3.8,
+          timer: 0.32,
+          maxTimer: 0.32,
+          color: '#f97316',
+          coreColor: '#fef08a',
+          meleeStyle: 'smash',
+        });
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 12.5,
+            vy: Math.sin(ang) * 12.5,
+            damage: Math.round(baseDmg * 1.5),
+            radius: 0.48,
+            maxLife: 0.65,
+            color: '#f97316',
+            coreColor: '#fef08a',
+            explosive: true,
+            burnEffect: true,
+          });
+        }
+        break;
+      }
+      case 'thunder_warhammer': {
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: 0,
+          arcSpread: Math.PI * 2,
+          radius: 4.0,
+          timer: 0.32,
+          maxTimer: 0.32,
+          color: '#38bdf8',
+          coreColor: '#e0f2fe',
+          meleeStyle: 'smash',
+        });
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+          if (d <= 4.5) {
+            this.damageEnemy(en, Math.round(baseDmg * 2.0), 0, 0);
+            this.triggerChainLightning(en, Math.round(baseDmg * 0.9));
+            if (!en.isBoss) {
+              en.state = 'recover';
+              en.stateTimer = 1.4;
+            }
+          }
+        }
+        break;
+      }
+      case 'dragon_lance': {
+        p.invulnTimer = Math.max(p.invulnTimer, 0.55);
+        const lungeX = p.gx + Math.cos(p.aimAngle) * 2.4;
+        const lungeY = p.gy + Math.sin(p.aimAngle) * 2.4;
+        if (this.isWalkable(lungeX, p.gy)) p.gx = lungeX;
+        if (this.isWalkable(p.gx, lungeY)) p.gy = lungeY;
+        for (let j = -1; j <= 1; j++) {
+          const ang = p.aimAngle + j * 0.14;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 18.0,
+            vy: Math.sin(ang) * 18.0,
+            damage: Math.round(baseDmg * 1.85),
+            radius: 0.52,
+            maxLife: 0.65,
+            color: '#fb923c',
+            coreColor: '#fef08a',
+            piercing: true,
+            explosive: true,
+            burnEffect: true,
+          });
+        }
+        break;
+      }
+      case 'excalibur': {
+        p.invulnTimer = Math.max(p.invulnTimer, 1.0);
+        p.armor = Math.min(p.maxArmor, p.armor + 18);
+        this.slashes.push({
+          gx: p.gx,
+          gy: p.gy,
+          angle: p.aimAngle,
+          arcSpread: Math.PI * 2,
+          radius: 4.2,
+          timer: 0.34,
+          maxTimer: 0.34,
+          color: '#fde047',
+          coreColor: '#ffffff',
+        });
+        for (let j = -2; j <= 2; j++) {
+          const ang = p.aimAngle + j * 0.18;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 17.5,
+            vy: Math.sin(ang) * 17.5,
+            damage: Math.round(baseDmg * 1.7),
+            radius: 0.56,
+            maxLife: 0.75,
+            color: '#fde047',
+            coreColor: '#ffffff',
+            piercing: true,
+            explosive: true,
+          });
+        }
+        break;
+      }
+      case 'pioneer_pistol': {
+        for (let i = 0; i < 6; i++) {
+          const ang = p.aimAngle + (i - 2.5) * 0.1;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 19.5,
+            vy: Math.sin(ang) * 19.5,
+            damage: Math.round(baseDmg * 1.35),
+            radius: 0.4,
+            maxLife: 0.65,
+            color: '#fde047',
+            coreColor: '#ffffff',
+            piercing: true,
+          });
+        }
+        break;
+      }
+      case 'splitter_shotgun': {
+        for (let i = 0; i < 10; i++) {
+          const ang = p.aimAngle + (i - 4.5) * 0.12;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 15.0,
+            vy: Math.sin(ang) * 15.0,
+            damage: Math.round(baseDmg * 1.45),
+            radius: 0.42,
+            maxLife: 0.55,
+            color: '#f97316',
+            coreColor: '#fef08a',
+            explosive: true,
+            burnEffect: true,
+          });
+        }
+        break;
+      }
+      case 'plasma_rifle': {
+        for (let j = -1; j <= 1; j++) {
+          const ang = p.aimAngle + j * 0.16;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 16.0,
+            vy: Math.sin(ang) * 16.0,
+            damage: Math.round(baseDmg * 2.2),
+            radius: 0.56,
+            maxLife: 0.75,
+            color: '#38bdf8',
+            coreColor: '#ffffff',
+            piercing: true,
+            explosive: true,
+            chainLightning: true,
+          });
+        }
+        break;
+      }
+      case 'gatling_minigun': {
+        for (let i = 0; i < 12; i++) {
+          const ang = p.aimAngle + (Math.random() - 0.5) * 0.42;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * (15.5 + Math.random() * 4),
+            vy: Math.sin(ang) * (15.5 + Math.random() * 4),
+            damage: Math.round(baseDmg * 1.4),
+            radius: 0.4,
+            maxLife: 0.65,
+            color: '#f59e0b',
+            coreColor: '#ffffff',
+            explosive: i % 3 === 0,
+          });
+        }
+        break;
+      }
+      case 'sniper_railgun': {
+        this.spawnProjectile({
+          fromPlayer: true,
+          gx: p.gx,
+          gy: p.gy,
+          vx: Math.cos(p.aimAngle) * 26.0,
+          vy: Math.sin(p.aimAngle) * 26.0,
+          damage: Math.round(baseDmg * 2.65),
+          radius: 0.65,
+          maxLife: 0.8,
+          color: '#22d3ee',
+          coreColor: '#ffffff',
+          piercing: true,
+          explosive: true,
+          chainLightning: true,
+        });
+        break;
+      }
+      case 'frost_laser': {
+        for (let i = 0; i < 12; i++) {
+          const ang = (i / 12) * Math.PI * 2;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 13.5,
+            vy: Math.sin(ang) * 13.5,
+            damage: Math.round(baseDmg * 1.9),
+            radius: 0.45,
+            maxLife: 0.65,
+            color: '#06b6d4',
+            coreColor: '#ffffff',
+            piercing: true,
+            chillEffect: true,
+          });
+        }
+        break;
+      }
+      case 'thunder_staff': {
+        for (const en of [...this.dungeon.enemies]) {
+          const d = Math.hypot(en.gx - p.gx, en.gy - p.gy);
+          if (d <= 6.5) {
+            this.damageEnemy(en, Math.round(baseDmg * 2.2), 0, 0);
+            const s1 = this.gridToWorld(en.gx, en.gy - 2.8, 44);
+            const s2 = this.gridToWorld(en.gx, en.gy, 12);
+            this.lightningBolts.push({
+              x1: s1.x,
+              y1: s1.y,
+              x2: s2.x,
+              y2: s2.y,
+              timer: 0.28,
+              maxTimer: 0.28,
+            });
+          }
+        }
+        break;
+      }
+      case 'inferno_bow': {
+        for (let j = -3; j <= 3; j++) {
+          const ang = p.aimAngle + j * 0.14;
+          this.spawnProjectile({
+            fromPlayer: true,
+            gx: p.gx,
+            gy: p.gy,
+            vx: Math.cos(ang) * 18.0,
+            vy: Math.sin(ang) * 18.0,
+            damage: Math.round(baseDmg * 1.45),
+            radius: 0.46,
+            maxLife: 0.75,
+            color: '#f97316',
+            coreColor: '#fef08a',
+            piercing: true,
+            explosive: true,
+            burnEffect: true,
+          });
+        }
+        break;
+      }
+    }
+
+    this.syncHud();
+  }
+
   public usePotion() {
     const p = this.player;
     if (p.potions <= 0) return;
@@ -2370,6 +3175,19 @@ export class IsometricGameEngine {
 
     if (closest) {
       if (closest.type === 'lobby_hero' && closest.heroId) {
+        if (!this.profile.unlockedHeroes.includes(closest.heroId)) {
+          sound.playUiClick(false);
+          const cost = HERO_CLASSES[closest.heroId].unlockCost;
+          this.addFloatingText(
+            closest.gx,
+            closest.gy,
+            28,
+            `🔒 CHƯA MỞ KHÓA (${cost} 💎)`,
+            '#f43f5e',
+            1.1
+          );
+          return;
+        }
         this.selectHeroClass(closest.heroId);
         sound.playLevelUp();
         this.spawnParticles(
@@ -2404,6 +3222,9 @@ export class IsometricGameEngine {
       }
 
       if (closest.type === 'dungeon_gate') {
+        if (this.tutorialStep === 4) {
+          this.tutorialStep = 5;
+        }
         sound.playStairsDescend();
         this.loadFloor(1);
         return;
@@ -2461,10 +3282,38 @@ export class IsometricGameEngine {
         closest.opened = true;
         sound.playPickup('shrine');
         this.spawnParticles(closest.gx, closest.gy, 10, 24, '#fde047', 4.2);
-        this.onEarnSoulGems?.(0, 0, false, false, { chestOpened: true });
 
+        if (!this.dungeon.inLivingRoom) {
+          this.onEarnSoulGems?.(0, 0, false, false, { chestOpened: true });
+        } else if (this.tutorialStep === 3) {
+          this.tutorialStep = 4;
+          sound.playLevelUp();
+          this.addFloatingText(
+            p.gx,
+            p.gy,
+            32,
+            '✓ BƯỚC 4 HOÀN TẤT!',
+            '#34d399',
+            1.18
+          );
+        }
+
+        const starterAllowedPool: WeaponId[] = Array.from(
+          new Set([
+            ...this.profile.unlockedWeapons,
+            'broadsword',
+            'pioneer_pistol',
+            'twin_daggers',
+            'splitter_shotgun',
+            'dragon_lance',
+          ])
+        );
+        const activePool = this.dungeon.inLivingRoom
+          ? starterAllowedPool
+          : WEAPON_POOL;
         const wpnId =
-          WEAPON_POOL[Math.floor(Math.random() * WEAPON_POOL.length)];
+          activePool[Math.floor(Math.random() * activePool.length)];
+
         this.dungeon.interactables.push({
           id: this.nextInteractId++,
           type: 'weapon_drop',
@@ -2500,13 +3349,19 @@ export class IsometricGameEngine {
           closest.weaponId = oldWeaponId;
           closest.label = WEAPONS[oldWeaponId].name;
         }
+        const equippedWpn = WEAPONS[newWeaponId];
+        p.maxWeaponSkillCooldown = equippedWpn.skillCd || 4.5;
+        p.attackProcCount = 0;
+        if (this.dungeon.inLivingRoom && this.tutorialStep === 3) {
+          this.tutorialStep = 4;
+        }
         sound.playWeaponSwitch();
         this.addFloatingText(
           p.gx,
           p.gy,
           26,
-          `EQUIPPED ${WEAPONS[newWeaponId].name.toUpperCase()}`,
-          WEAPONS[newWeaponId].rarityColor,
+          `EQUIPPED ${equippedWpn.name.toUpperCase()}`,
+          equippedWpn.rarityColor,
           1.15
         );
         this.syncHud();
@@ -2626,8 +3481,16 @@ export class IsometricGameEngine {
     knockDirX: number,
     knockDirY: number
   ) {
+    const wpn = this.getActiveWeapon();
+    const rarityCritBonus =
+      wpn.rarity === 'Legendary' ? 0.2 : wpn.rarity === 'Epic' ? 0.12 : 0;
     const isCrit = Math.random() < this.player.critChance;
-    const finalDmg = Math.round(baseDamage * (isCrit ? 1.65 : 1));
+    const finalDmg = Math.round(
+      baseDamage * (isCrit ? 1.65 + rarityCritBonus : 1)
+    );
+    if (wpn.rarity === 'Legendary') {
+      this.player.mana = Math.min(this.player.maxMana, this.player.mana + 1);
+    }
     en.hp -= finalDmg;
     en.hitFlash = 0.11; // 0.1s Red Flash
     en.squashX = 1.32;
@@ -2695,7 +3558,6 @@ export class IsometricGameEngine {
       isCrit ? 1.28 : 0.96
     );
 
-    const wpn = this.getActiveWeapon();
     if (this.hasBoon('chain_arc') || wpn.chainLightning) {
       this.triggerChainLightning(en, Math.round(finalDmg * 0.65));
     }
@@ -3242,6 +4104,8 @@ export class IsometricGameEngine {
     piercing?: boolean;
     explosive?: boolean;
     chainLightning?: boolean;
+    burnEffect?: boolean;
+    chillEffect?: boolean;
   }) {
     const slot = this.projectiles.find((p) => !p.active);
     if (!slot) return;
@@ -3261,6 +4125,8 @@ export class IsometricGameEngine {
     slot.piercing = opts.piercing;
     slot.explosive = opts.explosive;
     slot.chainLightning = opts.chainLightning;
+    slot.burnEffect = opts.burnEffect;
+    slot.chillEffect = opts.chillEffect;
   }
 
   private updateProjectiles(dt: number) {
@@ -3305,6 +4171,12 @@ export class IsometricGameEngine {
               proj.vx / len,
               proj.vy / len
             );
+            if (proj.burnEffect) {
+              en.burnTimer = Math.max(en.burnTimer || 0, 3.0);
+            }
+            if (proj.chillEffect) {
+              en.chillTimer = Math.max(en.chillTimer || 0, 2.5);
+            }
             if (proj.explosive) {
               this.spawnParticles(proj.gx, proj.gy, 12, 16, '#f97316', 3.6);
             }
@@ -3482,7 +4354,10 @@ export class IsometricGameEngine {
       if (d <= 1.85) {
         if (item.type === 'lobby_hero' && item.heroId) {
           const cfg = HERO_CLASSES[item.heroId];
-          promptText = `Play as ${cfg.name} (Tap / E)`;
+          const isUnlocked = this.profile.unlockedHeroes.includes(item.heroId);
+          promptText = isUnlocked
+            ? `Play as ${cfg.name} (Tap / E)`
+            : `🔒 ${cfg.name} — Unlock in Lobby (${cfg.unlockCost} 💎)`;
           promptSubtext = `${cfg.skillName} · HP ${cfg.maxHp} · MP ${cfg.maxMana}`;
         } else if (item.type === 'lobby_pet') {
           promptText = `Switch Pet: ${PETS[this.selectedPet].name} (Tap / E)`;
@@ -3576,7 +4451,11 @@ export class IsometricGameEngine {
       dashCooldownRatio: p.dashCooldown / p.maxDashCooldown,
       skillCooldownRatio: p.skillCooldown / p.maxSkillCooldown,
       ultCooldownRatio: p.ultCooldown / p.maxUltCooldown,
+      weaponSkillCooldownRatio:
+        p.weaponSkillCooldown / Math.max(0.1, p.maxWeaponSkillCooldown),
       attackCooldownRatio: p.attackCooldown / p.maxAttackCooldown,
+      attackProcCount: p.attackProcCount || 0,
+      tutorialStep: this.tutorialStep,
       comboCount: p.comboCount,
       currentWave: curRoom?.wave || 1,
       maxWaves: curRoom?.maxWaves || 1,
@@ -3608,32 +4487,38 @@ export class IsometricGameEngine {
     const ctx = this.ctx;
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const zoom = this.getEffectiveZoom();
 
     ctx.fillStyle = '#06080d';
     ctx.fillRect(0, 0, w, h);
 
     ctx.save();
+    ctx.translate(Math.round(w / 2), Math.round(h / 2));
+    ctx.scale(zoom, zoom);
     ctx.translate(
-      Math.round(w / 2 - this.camX + this.shakeX),
-      Math.round(h / 2 - this.camY + this.shakeY)
+      Math.round(-this.camX + this.shakeX),
+      Math.round(-this.camY + this.shakeY)
     );
+
+    const halfW = w / 2 / zoom;
+    const halfH = h / 2 / zoom;
 
     // 1. Render Multi-Layered Floor Tiles & Doors
     const minX = Math.max(
       0,
-      Math.floor((this.camX - w / 2) / TILE_SIZE) - 2
+      Math.floor((this.camX - halfW) / TILE_SIZE) - 2
     );
     const maxX = Math.min(
       this.dungeon.width - 1,
-      Math.ceil((this.camX + w / 2) / TILE_SIZE) + 2
+      Math.ceil((this.camX + halfW) / TILE_SIZE) + 2
     );
     const minY = Math.max(
       0,
-      Math.floor((this.camY - h / 2) / TILE_SIZE) - 2
+      Math.floor((this.camY - halfH) / TILE_SIZE) - 2
     );
     const maxY = Math.min(
       this.dungeon.height - 1,
-      Math.ceil((this.camY + h / 2) / TILE_SIZE) + 2
+      Math.ceil((this.camY + halfH) / TILE_SIZE) + 2
     );
 
     for (let y = minY; y <= maxY; y++) {
@@ -3780,7 +4665,7 @@ export class IsometricGameEngine {
       const alpha = Math.min(1, (ft.life / ft.maxLife) * 1.4);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = `700 ${Math.round(13 * ft.scale)}px 'JetBrains Mono', monospace`;
+      ctx.font = `700 ${Math.round(13 * ft.scale)}px 'Chakra Petch', 'JetBrains Mono', sans-serif`;
       ctx.textAlign = 'center';
       ctx.lineWidth = 4;
       ctx.strokeStyle = '#090b10';
@@ -4166,10 +5051,10 @@ export class IsometricGameEngine {
     }
 
     if (item.type === 'dungeon_gate') {
-      ctx.font = "800 12px 'Cinzel', serif";
+      ctx.font = "700 12px 'Chakra Petch', sans-serif";
       ctx.textAlign = 'center';
       ctx.fillStyle = '#fde047';
-      ctx.fillText('▲ ENTER DUNGEON ▲', scr.x, scr.y - 18);
+      ctx.fillText('▲ VÀO HẦM NGỤC (ENTER) ▲', scr.x, scr.y - 18);
       return;
     }
 
@@ -4382,12 +5267,23 @@ export class IsometricGameEngine {
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Legendary Skin Halo & Aura Ring
-    if (this.selectedSkinTier === 'legendary') {
+    // Legendary Skin or Legendary/Epic Weapon Halo & Aura Ring
+    const activeWpnForAura = this.getActiveWeapon();
+    if (
+      this.selectedSkinTier === 'legendary' ||
+      activeWpnForAura.rarity === 'Legendary' ||
+      activeWpnForAura.rarity === 'Epic'
+    ) {
       const skinCfg = HERO_CLASSES[this.selectedClass].skins.legendary;
+      const auraColor =
+        this.selectedSkinTier === 'legendary'
+          ? skinCfg.auraColor || '#fde047'
+          : activeWpnForAura.rarity === 'Legendary'
+          ? '#fde047'
+          : '#c084fc';
       ctx.save();
-      ctx.strokeStyle = skinCfg.auraColor || '#fde047';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = auraColor;
+      ctx.lineWidth = activeWpnForAura.rarity === 'Legendary' ? 2.4 : 1.8;
       ctx.setLineDash([4, 3]);
       ctx.globalAlpha = 0.85;
       ctx.beginPath();

@@ -2,9 +2,9 @@
 
 @layer base {
   :root {
-    --font-display: 'Silkscreen', 'Cinzel', serif;
-    --font-pixel: 'Press Start 2P', 'Silkscreen', monospace;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-display: 'Chakra Petch', 'Cinzel', sans-serif;
+    --font-pixel: 'Chakra Petch', 'Space Grotesk', sans-serif;
+    --font-sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
   }
 
@@ -27,15 +27,22 @@
     color: #f4f4f6;
     font-family: var(--font-sans);
     touch-action: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 .font-display {
   font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .font-pixel {
   font-family: var(--font-pixel);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  line-height: 1.25;
 }
 
 .font-mono-tabular {

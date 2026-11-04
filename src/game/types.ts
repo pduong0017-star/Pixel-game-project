@@ -165,6 +165,12 @@ export interface WeaponConfig {
   piercing?: boolean;
   explosive?: boolean;
   chainLightning?: boolean;
+  passiveName?: string;
+  passiveDesc?: string;
+  skillName?: string;
+  skillDesc?: string;
+  skillEnergy?: number;
+  skillCd?: number;
   description: string;
 }
 
@@ -197,6 +203,10 @@ export interface PlayerProfile {
   bestEndlessWave?: number;
   maxWeaponUpgradeReached?: number;
   claimedAchievements?: string[];
+  starterPackClaimed?: boolean;
+  lastDailyClaimDate?: string;
+  dailyStreak?: number;
+  tutorialCompleted?: boolean;
   selectedPetId?: PetId;
   upgrades: PermanentUpgrades;
   unlockedHeroes: HeroClassId[];
@@ -506,7 +516,10 @@ export interface HudSnapshot {
   dashCooldownRatio: number;
   skillCooldownRatio: number;
   ultCooldownRatio?: number;
+  weaponSkillCooldownRatio?: number;
   attackCooldownRatio: number;
+  attackProcCount?: number;
+  tutorialStep?: number;
   comboCount?: number;
   currentWave?: number;
   maxWaves?: number;
